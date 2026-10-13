@@ -682,29 +682,27 @@ function NotesUI({
 	// 🔍 単一の直感的フィルタリングロジックへ一本化 (SSOT)
 	const filteredNotesForTags = useMemo(() => {
 		return notes.filter((n) => {
-			const isCurrentScope =
-				(deferredFilterState.viewScope === "inbox" && n.scope === "inbox") ||
-				(deferredFilterState.viewScope === "domain" &&
-					n.scope === "domain" &&
-					n.url_pattern === scopeUrls.domain) ||
-				(deferredFilterState.viewScope === "exact" &&
-					n.scope === "exact" &&
-					n.url_pattern === scopeUrls.exact);
+			// 🌟 お気に入りの場合はタブスコープ制限をバイパスして常時表示を許可
+			if (!n.is_favorite) {
+				const isCurrentScope =
+					(deferredFilterState.viewScope === "inbox" && n.scope === "inbox") ||
+					(deferredFilterState.viewScope === "domain" &&
+						n.scope === "domain" &&
+						n.url_pattern === scopeUrls.domain) ||
+					(deferredFilterState.viewScope === "exact" &&
+						n.scope === "exact" &&
+						n.url_pattern === scopeUrls.exact);
 
-			if (!n.is_favorite && !isCurrentScope) {
-				return false;
+				if (!isCurrentScope) {
+					return false;
+				}
+
+				if (deferredFilterState.viewScope === "inbox" && n.scope !== "inbox")
+					return false;
+				if (deferredFilterState.viewScope !== "inbox" && n.scope === "inbox")
+					return false;
+				if (n.scope !== deferredFilterState.viewScope) return false;
 			}
-
-			if (deferredFilterState.viewScope === "inbox" && n.scope !== "inbox")
-				return false;
-			if (deferredFilterState.viewScope !== "inbox" && n.scope === "inbox")
-				return false;
-			if (
-				deferredFilterState.viewScope !== "inbox" &&
-				!n.is_favorite &&
-				n.scope !== deferredFilterState.viewScope
-			)
-				return false;
 
 			if (
 				deferredFilterState.filterType !== "all" &&

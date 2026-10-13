@@ -231,7 +231,7 @@ export interface FetchExtensionNotesOptions {
 }
 
 /**
- * 拡張機能用のノートメタデータ一覧を取得する (デフォルトではInboxを除外して超軽量化)
+ * 拡張機能用のノートメタデータ一覧を取得する (お気に入り・Inboxを除外して純粋なURLスコープのみ超軽量取得)
  */
 export async function fetchExtensionNoteMetadatas(
 	supabase: SupabaseClient,
@@ -241,7 +241,6 @@ export async function fetchExtensionNoteMetadatas(
 	const orConditions = [
 		`and(url_pattern.eq."${scopeUrls.domain}",scope.eq.domain)`,
 		`and(url_pattern.eq."${scopeUrls.exact}",scope.eq.exact)`,
-		"is_favorite.eq.true",
 	];
 
 	if (options?.includeInbox) {
@@ -272,7 +271,6 @@ export async function fetchExtensionNoteContents(
 	const orConditions = [
 		`and(url_pattern.eq."${scopeUrls.domain}",scope.eq.domain)`,
 		`and(url_pattern.eq."${scopeUrls.exact}",scope.eq.exact)`,
-		"is_favorite.eq.true",
 	];
 
 	if (options?.includeInbox) {
@@ -283,6 +281,40 @@ export async function fetchExtensionNoteContents(
 		.from("sitecue_notes")
 		.select("id, content")
 		.or(orConditions.join(","));
+
+	if (error) throw error;
+	return data || [];
+}
+
+/**
+ * 拡張機能用のお気に入りノートメタデータを全件取得する
+ */
+export async function fetchExtensionFavoriteMetadatas(
+	supabase: SupabaseClient,
+): Promise<Note[]> {
+	const { data, error } = await supabase
+		.from("sitecue_notes")
+		.select(
+			"id, user_id, url_pattern, scope, note_type, sort_order, created_at, is_expanded, is_favorite, is_pinned, is_resolved, tags",
+		)
+		.eq("is_favorite", true)
+		.order("sort_order", { ascending: true })
+		.order("created_at", { ascending: true });
+
+	if (error) throw error;
+	return data as Note[];
+}
+
+/**
+ * 拡張機能用のお気に入りノート本文を取得する (Hydration用)
+ */
+export async function fetchExtensionFavoriteContents(
+	supabase: SupabaseClient,
+): Promise<{ id: string; content: string }[]> {
+	const { data, error } = await supabase
+		.from("sitecue_notes")
+		.select("id, content")
+		.eq("is_favorite", true);
 
 	if (error) throw error;
 	return data || [];

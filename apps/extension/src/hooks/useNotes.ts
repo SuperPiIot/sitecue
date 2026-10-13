@@ -2,6 +2,8 @@ import type { Note, ViewScope as NoteScope } from "@sitecue/shared";
 import {
 	createNoteEntity,
 	deleteNoteEntity,
+	fetchExtensionFavoriteContents,
+	fetchExtensionFavoriteMetadatas,
 	fetchExtensionInboxContents,
 	fetchExtensionInboxMetadatas,
 	fetchExtensionNoteContents,
@@ -10,13 +12,20 @@ import {
 	resolveNotePayload,
 	updateNoteEntity,
 } from "@sitecue/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { localClient, supabase } from "../supabaseClient";
 import type { AuthStatus } from "./useAuth";
 
 export type NoteType = Note["note_type"];
 export type { Note, NoteScope };
+
+const sortNotesConsistent = (a: Note, b: Note) => {
+	if ((a.sort_order ?? 0) !== (b.sort_order ?? 0)) {
+		return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+	}
+	return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+};
 
 export function useNotes(
 	authStatus: AuthStatus,
@@ -26,6 +35,7 @@ export function useNotes(
 ) {
 	const [pageNotes, setPageNotes] = useState<Note[]>([]);
 	const [inboxNotes, setInboxNotes] = useState<Note[]>([]);
+	const [favoriteNotes, setFavoriteNotes] = useState<Note[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [isInboxLoading, setIsInboxLoading] = useState(false);
 	const [processingNoteIds, setProcessingNoteIds] = useState<Set<string>>(
@@ -36,16 +46,49 @@ export function useNotes(
 		authStatus.mode === "authenticated" ? authStatus.session : null;
 	const client = authStatus.mode === "guest" ? localClient : supabase;
 
-	const sortNotesConsistent = (a: Note, b: Note) => {
-		if ((a.sort_order ?? 0) !== (b.sort_order ?? 0)) {
-			return (a.sort_order ?? 0) - (b.sort_order ?? 0);
-		}
-		return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-	};
-
 	const hasInitialPageFetchRef = useRef(false);
+	const hasFetchedFavoritesRef = useRef(false);
 	const hasFetchedInboxRef = useRef(false);
 	const isFetchingInboxRef = useRef(false);
+
+	// お気に入りノートの本文 Hydration
+	const hydrateFavoriteContent = useCallback(async () => {
+		if (authStatus.mode === "loading") return;
+		try {
+			const data = await fetchExtensionFavoriteContents(
+				client as unknown as typeof supabase,
+			);
+			if (data) {
+				setFavoriteNotes((prevNotes) =>
+					prevNotes.map((note) => {
+						const hydrated = data.find((d) => d.id === note.id);
+						return hydrated ? { ...note, content: hydrated.content } : note;
+					}),
+				);
+			}
+		} catch (error) {
+			console.error("Failed to hydrate favorite notes", error);
+		}
+	}, [authStatus.mode, client]);
+
+	// お気に入りノートのフェッチ（初期ロード時に1回のみ。URL移動では再フェッチしない）
+	const fetchFavoriteNotes = useCallback(async () => {
+		if (authStatus.mode === "loading" || hasFetchedFavoritesRef.current) return;
+		try {
+			const data = await fetchExtensionFavoriteMetadatas(
+				client as unknown as typeof supabase,
+			);
+			setFavoriteNotes(data || []);
+			hasFetchedFavoritesRef.current = true;
+			hydrateFavoriteContent();
+		} catch (error) {
+			console.error("Failed to fetch favorite notes", error);
+		}
+	}, [authStatus.mode, hydrateFavoriteContent, client]);
+
+	useEffect(() => {
+		fetchFavoriteNotes();
+	}, [fetchFavoriteNotes]);
 
 	// Page/Domain ノートの Hydration
 	const hydratePageContent = useCallback(async () => {
@@ -124,7 +167,6 @@ export function useNotes(
 				});
 			});
 
-			// 背景で Inbox コンテンツを取得
 			const contents = await fetchExtensionInboxContents(
 				client as unknown as typeof supabase,
 			);
@@ -145,7 +187,7 @@ export function useNotes(
 		}
 	}, [authStatus.mode, client]);
 
-	// URL変更監視: Pageノートのみ再フェッチ。Inboxキャッシュは温存。
+	// URL変更監視: Pageノートのみ再フェッチ。Inboxとお気に入りキャッシュは温存。
 	useEffect(() => {
 		fetchPageNotes();
 	}, [fetchPageNotes]);
@@ -157,10 +199,16 @@ export function useNotes(
 		}
 	}, [viewScope, fetchInboxNotes]);
 
-	// 統合 notes 配列
-	const notes = [...pageNotes, ...inboxNotes].sort(sortNotesConsistent);
+	// 💡 Map による厳密なID重複排除マージ (お気に入り ➔ Inbox ➔ Page の順で上書きし最新状態を担保)
+	const notes = useMemo(() => {
+		const noteMap = new Map<string, Note>();
+		for (const n of favoriteNotes) noteMap.set(n.id, n);
+		for (const n of inboxNotes) noteMap.set(n.id, n);
+		for (const n of pageNotes) noteMap.set(n.id, n);
+		return Array.from(noteMap.values()).sort(sortNotesConsistent);
+	}, [favoriteNotes, inboxNotes, pageNotes]);
 
-	// CRUD操作時のヘルパー
+	// CRUD ヘルパー
 	const updateLocalNoteState = (
 		updater: (prev: Note[]) => Note[],
 		scope: NoteScope,
@@ -170,6 +218,7 @@ export function useNotes(
 		} else {
 			setPageNotes(updater);
 		}
+		setFavoriteNotes((prev) => updater(prev).filter((n) => n.is_favorite));
 	};
 
 	const addNote = async (
@@ -336,7 +385,6 @@ export function useNotes(
 				);
 			}
 
-			// スコープが跨いだ場合の再配置
 			if (existingNote.scope !== data.scope) {
 				if (existingNote.scope === "inbox") {
 					setInboxNotes((prev) => prev.filter((n) => n.id !== id));
@@ -351,6 +399,10 @@ export function useNotes(
 					data.scope,
 				);
 			}
+
+			setFavoriteNotes((prev) =>
+				prev.map((n) => (n.id === id ? { ...n, ...data } : n)),
+			);
 
 			chrome.runtime.sendMessage({ type: "REFRESH_BADGE" });
 			return true;
@@ -385,6 +437,7 @@ export function useNotes(
 				(prev) => prev.filter((note) => note.id !== id),
 				noteToDelete.scope,
 			);
+			setFavoriteNotes((prev) => prev.filter((n) => n.id !== id));
 
 			if (noteToDelete.scope !== "inbox") {
 				setTotalNoteCount((prev) => Math.max(0, prev - 1));
@@ -432,6 +485,9 @@ export function useNotes(
 					),
 				targetNote.scope,
 			);
+			setFavoriteNotes((prev) =>
+				prev.map((n) => (n.id === id ? { ...n, is_resolved: nextStatus } : n)),
+			);
 			chrome.runtime.sendMessage({ type: "REFRESH_BADGE" });
 			return true;
 		} catch (error) {
@@ -443,13 +499,28 @@ export function useNotes(
 
 	const toggleFavorite = async (note: Note) => {
 		const nextStatus = !note.is_favorite;
-		updateLocalNoteState(
-			(prev) =>
-				prev.map((n) =>
-					n.id === note.id ? { ...n, is_favorite: nextStatus } : n,
-				),
-			note.scope,
-		);
+		const updatedNote = { ...note, is_favorite: nextStatus };
+
+		// 0ms 楽観的UI更新
+		setFavoriteNotes((prev) => {
+			if (nextStatus) {
+				const exists = prev.some((n) => n.id === note.id);
+				return exists
+					? prev.map((n) => (n.id === note.id ? updatedNote : n))
+					: [...prev, updatedNote];
+			}
+			return prev.filter((n) => n.id !== note.id);
+		});
+
+		if (note.scope === "inbox") {
+			setInboxNotes((prev) =>
+				prev.map((n) => (n.id === note.id ? updatedNote : n)),
+			);
+		} else {
+			setPageNotes((prev) =>
+				prev.map((n) => (n.id === note.id ? updatedNote : n)),
+			);
+		}
 
 		try {
 			if (authStatus.mode === "guest") {
@@ -472,13 +543,18 @@ export function useNotes(
 			return true;
 		} catch (error) {
 			console.error("Failed to toggle favorite status", error);
-			updateLocalNoteState(
-				(prev) =>
-					prev.map((n) =>
-						n.id === note.id ? { ...n, is_favorite: note.is_favorite } : n,
-					),
-				note.scope,
-			);
+			// ロールバック
+			setFavoriteNotes((prev) => {
+				if (note.is_favorite) {
+					return prev.some((n) => n.id === note.id) ? prev : [...prev, note];
+				}
+				return prev.filter((n) => n.id !== note.id);
+			});
+			if (note.scope === "inbox") {
+				setInboxNotes((prev) => prev.map((n) => (n.id === note.id ? note : n)));
+			} else {
+				setPageNotes((prev) => prev.map((n) => (n.id === note.id ? note : n)));
+			}
 			toast.error("Failed to update status");
 			return false;
 		}
@@ -512,6 +588,11 @@ export function useNotes(
 					),
 				note.scope,
 			);
+			setFavoriteNotes((prev) =>
+				prev.map((n) =>
+					n.id === note.id ? { ...n, is_pinned: nextStatus } : n,
+				),
+			);
 			return true;
 		} catch (error) {
 			console.error("Failed to toggle pinned status", error);
@@ -533,6 +614,11 @@ export function useNotes(
 					.map((n) => (n.id === id ? { ...n, sort_order: newOrder } : n))
 					.sort(sortNotesConsistent),
 			targetNote.scope,
+		);
+		setFavoriteNotes((prev) =>
+			prev
+				.map((n) => (n.id === id ? { ...n, sort_order: newOrder } : n))
+				.sort(sortNotesConsistent),
 		);
 
 		try {
@@ -562,6 +648,7 @@ export function useNotes(
 			} else {
 				fetchPageNotes();
 			}
+			fetchFavoriteNotes();
 			return false;
 		} finally {
 			setProcessingNoteIds((prev) => {
@@ -581,6 +668,9 @@ export function useNotes(
 			(prev) =>
 				prev.map((n) => (n.id === id ? { ...n, is_expanded: nextValue } : n)),
 			targetNote.scope,
+		);
+		setFavoriteNotes((prev) =>
+			prev.map((n) => (n.id === id ? { ...n, is_expanded: nextValue } : n)),
 		);
 
 		try {
@@ -610,6 +700,11 @@ export function useNotes(
 						n.id === id ? { ...n, is_expanded: currentValue } : n,
 					),
 				targetNote.scope,
+			);
+			setFavoriteNotes((prev) =>
+				prev.map((n) =>
+					n.id === id ? { ...n, is_expanded: currentValue } : n,
+				),
 			);
 			toast.error("Failed to update note");
 			return false;
