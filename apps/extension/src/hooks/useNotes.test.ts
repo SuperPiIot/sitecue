@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createMockQueryBuilder = (mockData: unknown[] = []) => {
 	const promise = Promise.resolve({ data: mockData, error: null });
@@ -52,6 +52,8 @@ vi.mock("@sitecue/shared", async (importOriginal) => {
 		fetchExtensionNoteContents: vi.fn(),
 		fetchExtensionInboxMetadatas: vi.fn(),
 		fetchExtensionInboxContents: vi.fn(),
+		fetchExtensionFavoriteMetadatas: vi.fn(),
+		fetchExtensionFavoriteContents: vi.fn(),
 		updateNoteEntity: vi.fn(),
 		deleteNoteEntity: vi.fn(),
 		createNoteEntity: vi.fn(),
@@ -60,6 +62,8 @@ vi.mock("@sitecue/shared", async (importOriginal) => {
 
 import {
 	createNoteEntity,
+	fetchExtensionFavoriteContents,
+	fetchExtensionFavoriteMetadatas,
 	fetchExtensionInboxContents,
 	fetchExtensionInboxMetadatas,
 	fetchExtensionNoteContents,
@@ -611,5 +615,101 @@ describe("useNotes - Length limit and error mapping", () => {
 		});
 
 		expect(mockToastSuccess).not.toHaveBeenCalled();
+	});
+});
+
+describe("useNotes - Favorite Isolation & Deduplication", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	const mockSession = { user: { id: "user-1" } } as unknown as Session;
+	const mockAuthStatus: AuthStatus = {
+		mode: "authenticated",
+		session: mockSession,
+		userId: "user-1",
+	};
+
+	it("Inboxのお気に入りノートが存在しても、合成後のnotes配列で重複せずID一意に保たれること", async () => {
+		const favInboxNote: Note = {
+			id: "inbox-fav-1",
+			scope: "inbox",
+			is_favorite: true,
+			content: "Favorite in Inbox",
+			url_pattern: "inbox",
+			sort_order: 1,
+			created_at: new Date().toISOString(),
+		} as unknown as Note;
+
+		vi.mocked(fetchExtensionNoteMetadatas).mockResolvedValue([]);
+		vi.mocked(fetchExtensionNoteContents).mockResolvedValue([]);
+		vi.mocked(fetchExtensionFavoriteMetadatas).mockResolvedValue([
+			favInboxNote,
+		]);
+		vi.mocked(fetchExtensionFavoriteContents).mockResolvedValue([
+			{ id: "inbox-fav-1", content: "Favorite in Inbox" },
+		]);
+		vi.mocked(fetchExtensionInboxMetadatas).mockResolvedValue([favInboxNote]);
+		vi.mocked(fetchExtensionInboxContents).mockResolvedValue([
+			{ id: "inbox-fav-1", content: "Favorite in Inbox" },
+		]);
+
+		const { result, rerender } = renderHook(
+			({ scope }: { scope: "exact" | "domain" | "inbox" }) =>
+				useNotes(mockAuthStatus, "https://example.com/p1", vi.fn(), scope),
+			{ initialProps: { scope: "exact" as "exact" | "domain" | "inbox" } },
+		);
+
+		await waitFor(() => {
+			expect(result.current.notes.some((n) => n.id === "inbox-fav-1")).toBe(
+				true,
+			);
+		});
+
+		// Inboxタブへ切り替えても同一IDが重複せず1件のみであることを実証
+		rerender({ scope: "inbox" });
+
+		await waitFor(() => {
+			const matches = result.current.notes.filter(
+				(n) => n.id === "inbox-fav-1",
+			);
+			expect(matches.length).toBe(1);
+		});
+	});
+
+	it("URL変更時、favoriteNotesが再フェッチされずキャッシュが保護されること", async () => {
+		vi.mocked(fetchExtensionNoteMetadatas).mockResolvedValue([]);
+		vi.mocked(fetchExtensionNoteContents).mockResolvedValue([]);
+		vi.mocked(fetchExtensionFavoriteMetadatas).mockResolvedValue([
+			{
+				id: "fav-1",
+				scope: "domain",
+				is_favorite: true,
+				content: "Fav Note",
+				created_at: new Date().toISOString(),
+			} as unknown as Note,
+		]);
+		vi.mocked(fetchExtensionFavoriteContents).mockResolvedValue([]);
+
+		const { result, rerender } = renderHook(
+			({ url }) => useNotes(mockAuthStatus, url, vi.fn(), "exact"),
+			{ initialProps: { url: "https://example.com/p1" } },
+		);
+
+		await waitFor(() => {
+			expect(result.current.notes.some((n) => n.id === "fav-1")).toBe(true);
+			expect(fetchExtensionFavoriteMetadatas).toHaveBeenCalledTimes(1);
+		});
+
+		// URLを変更
+		rerender({ url: "https://example.com/p2" });
+
+		await waitFor(() => {
+			expect(fetchExtensionNoteMetadatas).toHaveBeenCalled();
+		});
+
+		// お気に入りのフェッチは再実行されない（1回のまま）
+		expect(fetchExtensionFavoriteMetadatas).toHaveBeenCalledTimes(1);
+		expect(result.current.notes.some((n) => n.id === "fav-1")).toBe(true);
 	});
 });

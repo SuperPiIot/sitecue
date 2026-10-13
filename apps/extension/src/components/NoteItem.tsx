@@ -262,7 +262,7 @@ function NoteItem({
 		<div
 			ref={cardRef}
 			style={{
-				contentVisibility: "auto",
+				contentVisibility: isEditing ? "visible" : "auto",
 				maxHeight:
 					animatingHeight !== null ? `${animatingHeight}px` : undefined,
 				// 💡【タイムライン個別調律のベストプラクティス】
@@ -422,7 +422,7 @@ function NoteItem({
 										editType !== (note.note_type || "info"),
 								);
 							}}
-							className="w-full border border-base-border rounded-xl p-2.5 text-sm bg-base-bg text-neutral-800 antialiased font-['Hack'] font-mono leading-[1.6] tracking-[0.03em] focus:outline-none focus:ring-0"
+							className="w-full resize-none overflow-hidden scrollbar-none border border-base-border rounded-xl p-2.5 text-sm bg-base-bg text-neutral-800 antialiased font-['Hack'] font-mono leading-[1.6] tracking-[0.03em] focus:outline-none focus:ring-0"
 							autoFocus
 							onKeyDown={(e) => {
 								if (e.nativeEvent.isComposing) return;

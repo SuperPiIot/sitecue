@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
 	deleteNoteEntity,
+	fetchExtensionFavoriteMetadatas,
 	fetchExtensionInboxMetadatas,
 	fetchExtensionNoteMetadatas,
 	fetchNoteContents,
@@ -118,6 +119,41 @@ describe("Shared DAL: Extension Notes Isolation", () => {
 		expect(mockOr).toHaveBeenCalledWith(
 			expect.stringContaining("scope.eq.inbox"),
 		);
+	});
+
+	it("fetchExtensionNoteMetadatasのクエリにお気に入り条件が含まれず、純粋に対象URLのみで構築されること", async () => {
+		const mockOrder2 = vi.fn().mockResolvedValue({ data: [], error: null });
+		const mockOrder1 = vi.fn().mockReturnValue({ order: mockOrder2 });
+		const mockOr = vi.fn().mockReturnValue({ order: mockOrder1 });
+		const mockSelect = vi.fn().mockReturnValue({ or: mockOr });
+		const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
+		const supabase: AnyClient = { from: mockFrom };
+
+		await fetchExtensionNoteMetadatas(supabase, {
+			domain: "example.com",
+			exact: "https://example.com/page",
+		});
+
+		expect(mockOr).toHaveBeenCalledWith(
+			expect.not.stringContaining("is_favorite.eq.true"),
+		);
+		expect(mockOr).toHaveBeenCalledWith(
+			'and(url_pattern.eq."example.com",scope.eq.domain),and(url_pattern.eq."https://example.com/page",scope.eq.exact)',
+		);
+	});
+
+	it("fetchExtensionFavoriteMetadatasがお気に入り条件（is_favorite=true）でクエリを構築すること", async () => {
+		const mockOrder2 = vi.fn().mockResolvedValue({ data: [], error: null });
+		const mockOrder1 = vi.fn().mockReturnValue({ order: mockOrder2 });
+		const mockEq = vi.fn().mockReturnValue({ order: mockOrder1 });
+		const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+		const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
+		const supabase: AnyClient = { from: mockFrom };
+
+		await fetchExtensionFavoriteMetadatas(supabase);
+
+		expect(mockFrom).toHaveBeenCalledWith("sitecue_notes");
+		expect(mockEq).toHaveBeenCalledWith("is_favorite", true);
 	});
 
 	it("fetchExtensionInboxMetadatasがscope=inboxで絞り込みクエリを構築すること", async () => {

@@ -22,9 +22,9 @@ export default defineConfig({
 	},
 
 	// ブラウザを自動起動させない設定
-  webExt: {
-    disabled: true,
-  },
+	webExt: {
+		disabled: true,
+	},
 
 	// manifest.json の完全な代わり
 	manifest: ({ command }) => ({

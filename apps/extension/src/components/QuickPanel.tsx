@@ -18,7 +18,6 @@ import {
 	Plus,
 	Send,
 	SquareTerminal,
-	Terminal,
 	Trash2,
 	X,
 } from "lucide-react";
@@ -563,8 +562,8 @@ export default function QuickPanel({
 					<div
 						className={
 							isNoteMaximized
-								? "w-full pt-1 flex-1 min-h-0 overflow-y-auto scrollbar-none"
-								: "w-full pt-1 max-h-[30vh] overflow-y-auto scrollbar-none overflow-hidden"
+								? "w-full pt-1 flex-1 min-h-0 overflow-y-auto overscroll-contain"
+								: "w-full pt-1 max-h-[30vh] overflow-y-auto scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden overscroll-auto"
 						}
 					>
 						<div
@@ -572,7 +571,7 @@ export default function QuickPanel({
 								isSliding
 									? "transition-all duration-300 ease-out translate-x-full opacity-0 pointer-events-none"
 									: isNoteMaximized
-										? "h-full flex flex-col transition-none"
+										? "min-h-full flex flex-col transition-none"
 										: "transition-none"
 							}
 						>
@@ -592,8 +591,8 @@ export default function QuickPanel({
 									onBlur={flushNoteStorage}
 									value={noteText}
 									placeholder="Temporary text scratchpad..."
-									className={`w-full resize-none border-none p-0 text-sm bg-base-bg text-neutral-900 focus:outline-none focus:ring-0 placeholder:text-neutral-400 font-['Hack'] font-mono leading-[1.6] scrollbar-none transition-[height] duration-300 ease-out ${
-										isNoteMaximized ? "h-full" : ""
+									className={`w-full resize-none overflow-hidden border-none p-0 text-sm bg-base-bg text-neutral-900 focus:outline-none focus:ring-0 placeholder:text-neutral-400 font-['Hack'] font-mono leading-[1.6] transition-[height] duration-300 ease-out ${
+										isNoteMaximized ? "min-h-full" : ""
 									}`}
 									minRows={isNoteMaximized ? 10 : 3}
 									onKeyDown={onNoteKeyDown}
@@ -683,8 +682,8 @@ export default function QuickPanel({
 					<div
 						className={
 							isCodeMaximized
-								? "w-full pt-1 flex-1 min-h-0 overflow-y-auto scrollbar-none"
-								: "w-full pt-1 max-h-[30vh] overflow-y-auto scrollbar-none overflow-hidden"
+								? "w-full pt-1 flex-1 min-h-0 overflow-y-auto overscroll-contain"
+								: "w-full pt-1 max-h-[30vh] overflow-y-auto scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden overscroll-auto"
 						}
 					>
 						<TextareaAutosize
@@ -692,8 +691,8 @@ export default function QuickPanel({
 							onBlur={flushCodeStorage}
 							value={codeText}
 							placeholder="$ docker run -it --rm ..."
-							className={`w-full resize-none border-none p-0 text-xs bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-0 placeholder:text-neutral-500 font-['Hack'] font-mono leading-[1.6] scrollbar-none transition-[height] duration-300 ease-out ${
-								isCodeMaximized ? "h-full" : ""
+							className={`w-full resize-none overflow-hidden border-none p-0 text-xs bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-0 placeholder:text-neutral-500 font-['Hack'] font-mono leading-[1.6] transition-[height] duration-300 ease-out ${
+								isCodeMaximized ? "min-h-full" : ""
 							}`}
 							minRows={isCodeMaximized ? 10 : 3}
 							spellCheck={false}

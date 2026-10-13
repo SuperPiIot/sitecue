@@ -216,10 +216,10 @@ describe("SidePanel Component", () => {
 			expect(screen.queryByText("Exact Note")).not.toBeInTheDocument();
 			expect(screen.queryByText("Domain Note")).not.toBeInTheDocument();
 			expect(screen.getByText("Inbox Note")).toBeInTheDocument();
-			// ただし Inbox タブでは、Page/Domain スコープのお気に入りは表示されない（隔離）
+			// 全スコープのお気に入りノートは Inbox タブでも最上部 FAVORITES 内で展開可能
 			expect(
-				screen.queryByText("Favorite Note (Other Scope)"),
-			).not.toBeInTheDocument();
+				screen.getByText("Favorite Note (Other Scope)"),
+			).toBeInTheDocument();
 		} finally {
 			vi.useRealTimers();
 		}
