@@ -7,6 +7,7 @@ import {
 	fetchNoteContents,
 	fetchNoteMetadatas,
 	getMatchingNoteCount,
+	searchNotesAndDrafts,
 } from "./notes";
 
 // biome-ignore lint/suspicious/noExplicitAny: モック構築用
@@ -168,5 +169,50 @@ describe("Shared DAL: Extension Notes Isolation", () => {
 
 		expect(mockFrom).toHaveBeenCalledWith("sitecue_notes");
 		expect(mockEq).toHaveBeenCalledWith("scope", "inbox");
+	});
+});
+
+describe("Shared DAL: searchNotesAndDrafts", () => {
+	it("qが指定された場合、RPC search_notes と search_drafts が並列実行されること", async () => {
+		const mockNotes = [{ id: "1", content: "Test note" }];
+		const mockRpc = vi.fn().mockImplementation((name) => ({
+			order: vi.fn().mockReturnThis(),
+			// biome-ignore lint/suspicious/noThenProperty: Supabase thenable mock
+			then: vi.fn().mockImplementation((cb) =>
+				cb({
+					data: name === "search_notes" ? mockNotes : [],
+					error: null,
+				}),
+			),
+		}));
+		const supabase: AnyClient = { rpc: mockRpc };
+
+		const res = await searchNotesAndDrafts(supabase, { q: "Test" });
+
+		expect(mockRpc).toHaveBeenCalledWith("search_notes", {
+			search_query: "Test",
+		});
+		expect(mockRpc).toHaveBeenCalledWith("search_drafts", {
+			search_query: "Test",
+		});
+		expect(res).toEqual({ notes: mockNotes, drafts: [] });
+	});
+
+	it("tagsのみが指定された場合、通常のテーブルクエリでcontainsフィルタが適用されること", async () => {
+		const mockChain = {
+			select: vi.fn().mockReturnThis(),
+			contains: vi.fn().mockReturnThis(),
+			order: vi.fn().mockReturnThis(),
+			// biome-ignore lint/suspicious/noThenProperty: Supabase thenable mock
+			then: vi.fn().mockImplementation((cb) => cb({ data: [], error: null })),
+		};
+		const mockFrom = vi.fn().mockReturnValue(mockChain);
+		const supabase: AnyClient = { from: mockFrom };
+
+		await searchNotesAndDrafts(supabase, { tags: "tag1" });
+
+		expect(mockFrom).toHaveBeenCalledWith("sitecue_notes");
+		expect(mockFrom).toHaveBeenCalledWith("sitecue_drafts");
+		expect(mockChain.contains).toHaveBeenCalledWith("tags", ["tag1"]);
 	});
 });

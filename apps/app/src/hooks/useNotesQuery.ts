@@ -9,6 +9,7 @@ import {
 	fetchNoteMetadatas,
 	type Note,
 	type NoteType,
+	searchNotesAndDrafts,
 	updateNoteEntity,
 	type ViewScope,
 } from "@sitecue/shared";
@@ -313,44 +314,7 @@ export function useSearchNotes(
 		queryFn: async () => {
 			if (!q && !tags) return { notes: [], drafts: [] };
 			const supabase = createClient();
-
-			let notesQuery = q
-				? supabase.rpc("search_notes", { search_query: q })
-				: supabase
-						.from("sitecue_notes")
-						.select(
-							"id, user_id, url_pattern, scope, note_type, content, is_pinned, is_resolved, is_favorite, is_expanded, sort_order, created_at, updated_at, draft_id, tags",
-						);
-
-			if (tags) {
-				const tagsArray = tags.split(",");
-				notesQuery = notesQuery.contains("tags", tagsArray);
-			}
-
-			let draftsQuery = q
-				? supabase.rpc("search_drafts", { search_query: q })
-				: supabase.from("sitecue_drafts").select("*");
-
-			if (tags) {
-				const tagsArray = tags.split(",");
-				draftsQuery = draftsQuery.contains("tags", tagsArray);
-			}
-
-			// 並列実行でレイテンシを抑える
-			const [notesResult, draftsResult] = await Promise.all([
-				notesQuery
-					.order("is_pinned", { ascending: false })
-					.order("created_at", { ascending: false }),
-				draftsQuery.order("updated_at", { ascending: false }),
-			]);
-
-			if (notesResult.error) throw notesResult.error;
-			if (draftsResult.error) throw draftsResult.error;
-
-			return {
-				notes: (notesResult.data as Note[]) || [],
-				drafts: (draftsResult.data as Draft[]) || [],
-			};
+			return await searchNotesAndDrafts(supabase, { q, tags });
 		},
 		staleTime: 5 * 60 * 1000,
 		...options,

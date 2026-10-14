@@ -1,7 +1,9 @@
 "use client";
 
-import { buildNoteContextHref } from "@sitecue/shared";
-import type { DashboardOverviewData } from "@sitecue/shared/dal";
+import {
+	buildNoteContextHref,
+	type DashboardActivityData,
+} from "@sitecue/shared";
 import { Edit3, FileText, Zap } from "lucide-react";
 import { CustomLink as Link } from "@/components/ui/custom-link";
 import { DomainFavicon } from "./DomainFavicon";
@@ -58,8 +60,8 @@ export function ContributionTimeline({
 	notes = [],
 	drafts = [],
 }: {
-	notes?: DashboardOverviewData["notes7d"];
-	drafts?: DashboardOverviewData["drafts7d"];
+	notes?: DashboardActivityData["notes7d"];
+	drafts?: DashboardActivityData["drafts7d"];
 }) {
 	if (notes.length === 0 && drafts.length === 0) {
 		return (

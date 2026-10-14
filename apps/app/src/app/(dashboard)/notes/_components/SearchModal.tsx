@@ -1,6 +1,10 @@
 "use client";
 
-import { type Diary, normalizeUrlForGrouping } from "@sitecue/shared";
+import {
+	buildNoteContextHref,
+	type Diary,
+	normalizeUrlForGrouping,
+} from "@sitecue/shared";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +18,27 @@ interface SearchModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 }
+
+const getScopeDisplayLabel = (scope: Note["scope"] | string): string => {
+	switch (scope) {
+		case "draft":
+			return "Studio Review";
+		case "inbox":
+			return "Inbox";
+		case "domain":
+			return "Domain";
+		case "exact":
+			return "Page";
+		default:
+			return "Note";
+	}
+};
+
+const getNoteSubLabel = (note: Note): string => {
+	if (note.scope === "draft") return "Review note in Studio";
+	if (note.scope === "inbox") return "Inbox";
+	return note.url_pattern;
+};
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 	const router = useRouter();
@@ -42,7 +67,11 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 		const diaries: Diary[] = [];
 
 		data.notes.forEach((note) => {
-			if (note.url_pattern) {
+			if (
+				note.url_pattern &&
+				note.scope !== "inbox" &&
+				note.scope !== "draft"
+			) {
 				const domain = normalizeUrlForGrouping(note.url_pattern).split("/")[0];
 				const domainMatches = domain
 					.toLowerCase()
@@ -104,20 +133,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 	}, [data.notes, fetchContents]);
 
 	const handleJump = (note: Note) => {
-		const params = new URLSearchParams();
-		if (note.scope === "domain") {
-			params.set("domain", note.url_pattern);
-		} else if (note.scope === "exact") {
-			const domain = normalizeUrlForGrouping(note.url_pattern).split("/")[0];
-			params.set("domain", domain);
-			params.set("exact", note.url_pattern);
-		} else {
-			params.set("domain", "inbox");
-		}
-		params.set("noteId", note.id);
-
+		const href = buildNoteContextHref({
+			id: note.id,
+			scope: note.scope,
+			url_pattern: note.url_pattern,
+			draft_id: note.draft_id,
+		});
 		onClose();
-		router.push(`/notes?${params.toString()}`);
+		router.push(href);
 	};
 
 	return (
@@ -270,7 +293,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 												>
 													<div className="flex items-center justify-between mb-1">
 														<span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-															{note.scope} • {note.note_type}
+															{getScopeDisplayLabel(note.scope)} •{" "}
+															{note.note_type}
 														</span>
 														<span className="text-[10px] text-gray-400">
 															{new Date(note.created_at).toLocaleDateString()}
@@ -280,7 +304,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 														{note.content || "No content"}
 													</p>
 													<p className="text-[10px] text-gray-400 truncate">
-														{note.url_pattern}
+														{getNoteSubLabel(note)}
 													</p>
 												</button>
 											))}

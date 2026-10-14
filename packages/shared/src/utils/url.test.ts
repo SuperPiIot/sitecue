@@ -44,14 +44,14 @@ describe("buildNoteContextHref", () => {
 		expect(href).toBe("/notes?view=inbox&noteId=note-1");
 	});
 
-	it("generates correct URL with exact=all for domain scope", () => {
+	it("generates correct URL with exact=domain for domain scope", () => {
 		const href = buildNoteContextHref({
 			id: "note-2",
 			scope: "domain",
 			url_pattern: "127.0.0.1:3000",
 		});
 		expect(href).toBe(
-			"/notes?domain=127.0.0.1%3A3000&view=domains&exact=all&noteId=note-2",
+			"/notes?domain=127.0.0.1%3A3000&view=domains&exact=domain&noteId=note-2",
 		);
 	});
 
@@ -75,5 +75,34 @@ describe("buildNoteContextHref", () => {
 		expect(href).toBe(
 			`/notes?domain=qiita.com&view=domains&exact=${encodeURIComponent("https://qiita.com/stock-feed")}&noteId=note-4`,
 		);
+	});
+
+	it("generates studio URL when scope is draft and draft_id is provided", () => {
+		const href = buildNoteContextHref({
+			id: "note-5",
+			scope: "draft",
+			draft_id: "draft-abc-123",
+			url_pattern: "draft",
+		});
+		expect(href).toBe("/studio/draft-abc-123");
+	});
+
+	it("generates studio URL when scope is draft and url_pattern has sitecue://draft/ prefix", () => {
+		const href = buildNoteContextHref({
+			id: "note-6",
+			scope: "draft",
+			draft_id: null,
+			url_pattern: "sitecue://draft/draft-xyz-789",
+		});
+		expect(href).toBe("/studio/draft-xyz-789");
+	});
+
+	it("rescues corrupted exact note with url_pattern === 'domain'", () => {
+		const href = buildNoteContextHref({
+			id: "note-corrupted",
+			scope: "exact",
+			url_pattern: "domain",
+		});
+		expect(href).toBe("/notes?q=domain&noteId=note-corrupted");
 	});
 });

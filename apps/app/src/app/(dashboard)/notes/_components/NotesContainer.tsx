@@ -241,6 +241,13 @@ export function NotesContainer() {
 		isTabReady,
 	]);
 
+	// 選択中ノートの最優先ハイドレーション（中ペインのフィルタ外や51件目以降でも無限スケルトンを100%防ぐ）
+	useEffect(() => {
+		if (selectedNote && selectedNote.content === undefined) {
+			fetchContentForIds([selectedNote.id]);
+		}
+	}, [selectedNote, fetchContentForIds]);
+
 	useEffect(() => {
 		if (!isTabReady || filteredItems.length === 0) return;
 
@@ -248,14 +255,16 @@ export function NotesContainer() {
 			.slice(0, 50)
 			.filter(
 				(item): item is Note =>
-					"url_pattern" in item && item.content === undefined,
+					"url_pattern" in item &&
+					item.content === undefined &&
+					item.id !== selectedNote?.id,
 			)
 			.map((item) => item.id);
 
 		if (missingIds.length > 0) {
 			fetchContentForIds(missingIds);
 		}
-	}, [filteredItems, isTabReady, fetchContentForIds]);
+	}, [filteredItems, isTabReady, fetchContentForIds, selectedNote?.id]);
 
 	return (
 		<ResponsiveNotesLayout

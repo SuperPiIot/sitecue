@@ -4,8 +4,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LaunchpadPage from "./page";
 
-// モック定義
-const mockDashboardData = {
+const mockActivityData = {
 	todayTotal: 3,
 	todayStr: "2026-08-11",
 	monthYearStr: "AUG 2026",
@@ -13,6 +12,7 @@ const mockDashboardData = {
 	weekdayStr: "TUESDAY",
 	currentYear: "2026",
 	currentMonth: "08",
+	startOfDay: "2026-08-11T00:00:00+09:00",
 	noteCount7d: 5,
 	draftCount7d: 2,
 	recentNotes: [
@@ -26,30 +26,45 @@ const mockDashboardData = {
 		},
 	],
 	recentDrafts: [],
-	domainActivities: [
-		{
-			domain: "example.com",
-			total_count: 3,
-			domain_notes: [
-				{ id: "dn-1", content: "Domain Note 1", is_resolved: false },
-			],
-			top_pages: [],
-		},
-	],
 	notes7d: [],
 	drafts7d: [],
 };
 
-let queryFnResolver: ((data: typeof mockDashboardData) => void) | null = null;
+const mockDomainsData = [
+	{
+		domain: "example.com",
+		total_count: 3,
+		domain_notes: [
+			{ id: "dn-1", content: "Domain Note 1", is_resolved: false },
+		],
+		top_pages: [],
+	},
+];
+
+let isMockLoading = false;
 
 vi.mock("@/hooks/useDashboardQuery", () => ({
-	DASHBOARD_QUERY_KEY: ["dashboard", "data"],
-	useFetchDashboardData: () => {
-		// TanStack Query風のステートを返却（非同期フェッチをシミュレート）
-		if (queryFnResolver) {
+	DASHBOARD_QUERY_KEY: ["dashboard"],
+	useFetchDashboardActivity: () => {
+		if (isMockLoading) {
 			return { data: undefined, isLoading: true };
 		}
-		return { data: mockDashboardData, isLoading: false };
+		return { data: mockActivityData, isLoading: false };
+	},
+	useFetchDashboardDomains: () => {
+		if (isMockLoading) {
+			return { data: undefined, isLoading: true };
+		}
+		return { data: mockDomainsData, isLoading: false };
+	},
+	useFetchDashboardData: () => {
+		if (isMockLoading) {
+			return { data: undefined, isLoading: true };
+		}
+		return {
+			data: { ...mockActivityData, domainActivities: mockDomainsData },
+			isLoading: false,
+		};
 	},
 }));
 
@@ -78,16 +93,18 @@ function TestWrapper({ children }: { children: ReactNode }) {
 describe("LaunchpadPage (/)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		queryFnResolver = null;
+		isMockLoading = false;
 	});
 
-	it("Cold Start時（データ読み込み中）であってもUIシェル（セクション見出し等）が0msで常時レンダリングされること", () => {
-		// ローディング状態を再現
-		queryFnResolver = () => {};
+	it("Cold Start時（データ読み込み中）であってもUIシェル（Today's Focusカレンダー・日記追記ボタン・セクション見出し等）が0msで常時レンダリングされること", () => {
+		isMockLoading = true;
 
 		render(<LaunchpadPage />, { wrapper: TestWrapper });
 
-		// UIシェルの見出しがフェッチ完了を待たずに即時存在することを検証
+		expect(screen.getByText("Today's Focus")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /\+ append to today's diary/i }),
+		).toBeInTheDocument();
 		expect(
 			screen.getByRole("heading", { name: "Domain Activity" }),
 		).toBeInTheDocument();

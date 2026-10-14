@@ -1,7 +1,36 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-// Supabase の Auth Cookie（単体および chunked cookie: sb-<project>-auth-token / sb-<project>-auth-token.0 等）に合致する正規表現
-const SB_AUTH_COOKIE_REGEX = /^sb-.*-auth-token(\.\d+)?$/;
+// 環境変数未指定時のフォールバック用正規表現
+const FALLBACK_SB_AUTH_COOKIE_REGEX = /^sb-.*-auth-token(\.\d+)?$/;
+
+/**
+ * NEXT_PUBLIC_SUPABASE_URL のホスト名先頭（Project Ref）に基づき、
+ * 現在のターゲット環境に一致する Supabase Auth Cookie 名かどうかを高速判定する（<0.05ms）。
+ * - 例1: http://127.0.0.1:54321 -> projectRef = "127" -> sb-127-auth-token(.0)
+ * - 例2: https://abcdefgh.supabase.co -> projectRef = "abcdefgh" -> sb-abcdefgh-auth-token(.0)
+ */
+export function isMatchingSupabaseAuthCookie(
+	cookieName: string,
+	supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+): boolean {
+	if (supabaseUrl) {
+		try {
+			const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+			if (projectRef) {
+				const baseName = `sb-${projectRef}-auth-token`;
+				if (cookieName === baseName) return true;
+				if (cookieName.startsWith(`${baseName}.`)) {
+					const suffix = cookieName.slice(baseName.length + 1);
+					return /^\d+$/.test(suffix);
+				}
+				return false;
+			}
+		} catch {
+			// URLパース失敗時はフォールバック正規表現で判定
+		}
+	}
+	return FALLBACK_SB_AUTH_COOKIE_REGEX.test(cookieName);
+}
 
 export async function updateSession(request: NextRequest) {
 	// オプトアウト方式: 認証不要な公開ルートをホワイトリストとして定義
@@ -10,12 +39,12 @@ export async function updateSession(request: NextRequest) {
 		publicRoutes.includes(request.nextUrl.pathname) ||
 		request.nextUrl.pathname.startsWith("/api/");
 
-	// 認証Cookieの存在確認（高速軽量チェック: <0.05ms）
+	// 認証Cookieの存在確認（環境別Project Ref照合・高速軽量チェック: <0.05ms）
 	const hasAuthCookie = request.cookies
 		.getAll()
 		.some(
 			(cookie) =>
-				SB_AUTH_COOKIE_REGEX.test(cookie.name) && Boolean(cookie.value),
+				isMatchingSupabaseAuthCookie(cookie.name) && Boolean(cookie.value),
 		);
 
 	if (!hasAuthCookie && !isPublicRoute) {

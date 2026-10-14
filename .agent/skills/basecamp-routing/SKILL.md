@@ -16,7 +16,7 @@
 - **RSC Top-level Blocking の禁止**: `page.tsx` (RSC) 直下で `requireUser()` や `searchParams` などの非同期待機を行って RSC Payload 返却自体を遅延させてはならない。0ms で Client Component（UIシェル）を即時返却すること。
 
 ## 4. 画面別 0ms シェル ＆ データスロット構造指針
-- **Launchpad (`/`)**: 最外殻グリッド・セクション見出しを 0ms 即時表示し、`TopSectionSlot`, `DomainActivitySlot`, `ActivityLogSlot` へ `<Suspense>` ＋ `<SWRBoundary>` をペア配置する。
+- **Launchpad (`/`)**: 最外殻グリッド・セクション見出し、および「Today's Focus」カード内のカレンダー日付表示・日記リンク・`AppendDiaryButton` をDBデータ非依存の 0ms UIシェルとして常時露出させ、当日エントリ件数（`TodayEntryCountSlot`）および「Weekly Progress（`WeeklyProgressSlot`）」「Domain Activity（`DomainActivitySlot`）」「Activity Log（`ActivityLogSlot`）」の各データスロットに `<Suspense>` ＋ `<SWRBoundary>` をペア配置する。
 - **Studio (`/studio/[id]`)**: ヘッダー（`DraftEditorHeader`）、タイトル/slug入力領域を 0ms 即時表示し、`StudioEditor`, `StudioMaterialsPane`, `StudioReviewPane` のみ局所サスペンド保護する。
 - **Diaries (`/diaries/[date]`)**: ヘッダー、レスポンシブ枠組みを 0ms 即時表示し、`StudioEditor` および `DiaryMaterialsPane` のみ局所サスペンド保護する。
 - **Templates (`/templates`)**: 左ペインヘッダーおよびフレームを 0ms 即時表示し、リスト領域およびエディタ領域のみ局所サスペンド保護する。

@@ -182,7 +182,9 @@ export function RightPaneDetail({
 			let currentExact = searchParams.get("exact");
 			let currentDomain = searchParams.get("domain");
 
-			if (currentExact === "all") currentExact = null;
+			if (currentExact === "all" || currentExact === "domain") {
+				currentExact = null;
+			}
 			if (currentDomain === "all") currentDomain = "inbox";
 
 			if (currentExact) {
