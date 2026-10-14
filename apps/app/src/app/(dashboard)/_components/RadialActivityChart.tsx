@@ -34,6 +34,7 @@ export async function RadialActivityChart({ supabase, user }: Props) {
 			.from("sitecue_notes")
 			.select("id")
 			.eq("user_id", user.id)
+			.neq("scope", "draft")
 			.gte("created_at", dateStr),
 		supabase
 			.from("sitecue_drafts")
@@ -44,6 +45,7 @@ export async function RadialActivityChart({ supabase, user }: Props) {
 			.from("sitecue_notes")
 			.select("id, content, is_resolved, scope, url_pattern, created_at")
 			.eq("user_id", user.id)
+			.neq("scope", "draft")
 			.order("created_at", { ascending: false })
 			.limit(5),
 		supabase

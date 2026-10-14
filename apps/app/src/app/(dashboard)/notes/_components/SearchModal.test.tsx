@@ -30,10 +30,9 @@ describe("SearchModal Context Jump", () => {
 		vi.clearAllMocks();
 	});
 
-	it("should navigate to exact domain and set noteId when a note is clicked", async () => {
+	it("should navigate to exact domain and set noteId when an exact note is clicked", async () => {
 		const user = userEvent.setup();
 
-		// Setup mock return value for search
 		mockSearchNotes.mockReturnValue({
 			data: {
 				notes: [
@@ -63,32 +62,69 @@ describe("SearchModal Context Jump", () => {
 			</QueryClientProvider>,
 		);
 
-		// Type in search box
 		const input = screen.getByPlaceholderText(/search notes/i);
 		await user.type(input, "Test");
-
-		// Press Enter to trigger search
 		await user.keyboard("{Enter}");
 
-		// Wait for result to appear
 		const noteResult = await screen.findByText("Test Note Content");
+		expect(screen.getByText(/Page • info/i)).toBeInTheDocument();
 		await user.click(noteResult);
 
-		// Verify navigation
 		await waitFor(() => {
 			expect(mockPush).toHaveBeenCalledWith(
-				expect.stringContaining("domain=example.com"),
-			);
-			expect(mockPush).toHaveBeenCalledWith(
-				expect.stringContaining("exact=https%3A%2F%2Fexample.com%2Fpath"),
-			);
-			expect(mockPush).toHaveBeenCalledWith(
-				expect.stringContaining("noteId=note-123"),
+				`/notes?domain=example.com&view=domains&exact=${encodeURIComponent("https://example.com/path")}&noteId=note-123`,
 			);
 		});
 	});
 
-	it("should navigate to inbox for inbox scope notes", async () => {
+	it("should navigate with exact=domain when a domain scope note is clicked", async () => {
+		const user = userEvent.setup();
+
+		mockSearchNotes.mockReturnValue({
+			data: {
+				notes: [
+					{
+						id: "note-domain-1",
+						content: "Domain Note Content",
+						scope: "domain",
+						url_pattern: "github.com",
+						note_type: "idea",
+						created_at: new Date().toISOString(),
+					},
+				],
+				drafts: [],
+			},
+			isLoading: false,
+		});
+
+		const queryClient = new QueryClient({
+			defaultOptions: {
+				queries: { retry: false },
+				mutations: { retry: false },
+			},
+		});
+		render(
+			<QueryClientProvider client={queryClient}>
+				<SearchModal isOpen={true} onClose={vi.fn()} />
+			</QueryClientProvider>,
+		);
+
+		const input = screen.getByPlaceholderText(/search notes/i);
+		await user.type(input, "Domain");
+		await user.keyboard("{Enter}");
+
+		const noteResult = await screen.findByText("Domain Note Content");
+		expect(screen.getByText(/Domain • idea/i)).toBeInTheDocument();
+		await user.click(noteResult);
+
+		await waitFor(() => {
+			expect(mockPush).toHaveBeenCalledWith(
+				"/notes?domain=github.com&view=domains&exact=domain&noteId=note-domain-1",
+			);
+		});
+	});
+
+	it("should navigate to inbox for inbox scope notes and exclude inbox from Domains list", async () => {
 		const user = userEvent.setup();
 
 		mockSearchNotes.mockReturnValue({
@@ -98,7 +134,7 @@ describe("SearchModal Context Jump", () => {
 						id: "note-inbox",
 						content: "Inbox Note",
 						scope: "inbox",
-						url_pattern: "",
+						url_pattern: "inbox",
 						note_type: "info",
 						created_at: new Date().toISOString(),
 					},
@@ -125,15 +161,62 @@ describe("SearchModal Context Jump", () => {
 		await user.keyboard("{Enter}");
 
 		const noteResult = await screen.findByText("Inbox Note");
+		expect(screen.queryByText("Domains")).not.toBeInTheDocument();
 		await user.click(noteResult);
 
 		await waitFor(() => {
 			expect(mockPush).toHaveBeenCalledWith(
-				expect.stringContaining("domain=inbox"),
+				"/notes?view=inbox&noteId=note-inbox",
 			);
-			expect(mockPush).toHaveBeenCalledWith(
-				expect.stringContaining("noteId=note-inbox"),
-			);
+		});
+	});
+
+	it("should display 'Studio Review' label and navigate to /studio/[draftId] when a draft scope review note is clicked", async () => {
+		const user = userEvent.setup();
+
+		mockSearchNotes.mockReturnValue({
+			data: {
+				notes: [
+					{
+						id: "note-review-1",
+						content: "Self review comment",
+						scope: "draft",
+						url_pattern: "sitecue://draft/draft-999",
+						draft_id: "draft-999",
+						note_type: "alert",
+						created_at: new Date().toISOString(),
+					},
+				],
+				drafts: [],
+			},
+			isLoading: false,
+		});
+
+		const queryClient = new QueryClient({
+			defaultOptions: {
+				queries: { retry: false },
+				mutations: { retry: false },
+			},
+		});
+		render(
+			<QueryClientProvider client={queryClient}>
+				<SearchModal isOpen={true} onClose={vi.fn()} />
+			</QueryClientProvider>,
+		);
+
+		const input = screen.getByPlaceholderText(/search notes/i);
+		await user.type(input, "review");
+		await user.keyboard("{Enter}");
+
+		const noteResult = await screen.findByText("Self review comment");
+		expect(screen.getByText(/Studio Review • alert/i)).toBeInTheDocument();
+		expect(screen.getByText("Review note in Studio")).toBeInTheDocument();
+		expect(screen.queryByText("Domains")).not.toBeInTheDocument();
+
+		await user.click(noteResult);
+
+		await waitFor(() => {
+			expect(mockPush).toHaveBeenCalledWith("/studio/draft-999");
 		});
 	});
 
@@ -159,10 +242,8 @@ describe("SearchModal Context Jump", () => {
 		const input = screen.getByPlaceholderText(/search notes/i);
 		fireEvent.change(input, { target: { value: "Test" } });
 
-		// 途中経過で呼ばれていないことを確認
 		expect(mockSearchNotes).not.toHaveBeenCalledWith("Test");
 
-		// hit enter
 		fireEvent.keyDown(input, { key: "Enter" });
 
 		await waitFor(() => {
@@ -171,7 +252,6 @@ describe("SearchModal Context Jump", () => {
 	});
 
 	it("should clear input and results when clear button is clicked", async () => {
-		// Setup mock to return a result when query is "Test"
 		mockSearchNotes.mockImplementation((q) => {
 			if (q === "Test") {
 				return {
@@ -208,18 +288,14 @@ describe("SearchModal Context Jump", () => {
 
 		const input = screen.getByPlaceholderText("Search notes...");
 
-		// 文字を入力し、Enterで検索実行
 		fireEvent.change(input, { target: { value: "Test" } });
 		fireEvent.keyDown(input, { key: "Enter" });
 
-		// 結果が表示されていることを確認
 		expect(await screen.findByText("Test Result")).toBeInTheDocument();
 
-		// クリアボタンを押下
 		const clearButton = screen.getByRole("button", { name: /clear search/i });
 		fireEvent.click(clearButton);
 
-		// inputと結果が両方クリアされていることを確認
 		expect(input).toHaveValue("");
 		expect(screen.queryByText("Test Result")).not.toBeInTheDocument();
 		expect(
@@ -314,7 +390,6 @@ describe("SearchModal Context Jump", () => {
 		);
 
 		const input = screen.getByPlaceholderText(/search notes/i);
-		// Focus timer is 100ms, so wait for it to settle
 		await new Promise((resolve) => setTimeout(resolve, 150));
 		await user.type(input, "example");
 		await user.keyboard("{Enter}");
@@ -322,7 +397,6 @@ describe("SearchModal Context Jump", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Domains")).toBeInTheDocument();
 			expect(screen.getByText("example.com")).toBeInTheDocument();
-			// Pagesセクションはレンダリングされないか、該当ページが含まれていないことを確認
 			expect(
 				screen.queryByText("https://example.com/page-1"),
 			).not.toBeInTheDocument();
@@ -361,12 +435,10 @@ describe("SearchModal Context Jump", () => {
 		);
 
 		const input = screen.getByPlaceholderText(/search notes/i);
-		// Focus timer is 100ms, so wait for it to settle
 		await new Promise((resolve) => setTimeout(resolve, 150));
 		await user.type(input, "integrated");
 		await user.keyboard("{Enter}");
 
-		// セクションおよび本文スニペット（一行目）の存在を確認
 		await waitFor(() => {
 			expect(screen.getByText("Diaries")).toBeInTheDocument();
 			expect(
@@ -374,7 +446,6 @@ describe("SearchModal Context Jump", () => {
 			).toBeInTheDocument();
 		});
 
-		// クリックによる厳密なパラメータ遷移を検証
 		const diaryResult = screen.getByText("Diaries integrated test text line");
 		await user.click(diaryResult);
 

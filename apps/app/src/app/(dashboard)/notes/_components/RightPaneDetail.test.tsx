@@ -187,4 +187,43 @@ describe("RightPaneDetail - New Note Scope & NoteType Integration", () => {
 			);
 		});
 	});
+
+	it("initializes scope as 'domain' and url as currentDomain when creating a new note in exact=domain folder", async () => {
+		mockSearchParams = new URLSearchParams(
+			"?domain=github.com&exact=domain&new=note",
+		);
+		mockCreateNoteMutateAsync.mockResolvedValueOnce({
+			id: "domain-note-789",
+			scope: "domain",
+			url_pattern: "github.com",
+			note_type: "info",
+			content: "New domain note",
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+			is_pinned: false,
+			is_resolved: false,
+			is_favorite: false,
+			sort_order: 0,
+		});
+
+		render(<RightPaneDetail isNewNote={true} />);
+
+		const textarea = screen.getByPlaceholderText("What's on your mind?");
+		fireEvent.change(textarea, { target: { value: "New domain note" } });
+
+		const saveButton = screen.getByRole("button", { name: "Save" });
+		fireEvent.click(saveButton);
+
+		await waitFor(() => {
+			expect(mockCreateNoteMutateAsync).toHaveBeenCalledWith({
+				content: "New domain note",
+				scope: "domain",
+				note_type: "info",
+				currentUrl: "github.com",
+			});
+			expect(mockReplace).toHaveBeenCalledWith(
+				"/notes?domain=github.com&view=domains&exact=domain&noteId=domain-note-789",
+			);
+		});
+	});
 });

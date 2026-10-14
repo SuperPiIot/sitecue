@@ -1,12 +1,19 @@
 "use client";
 
-import { buildNoteContextHref } from "@sitecue/shared";
-import type { DashboardOverviewData } from "@sitecue/shared/dal";
+import {
+	buildNoteContextHref,
+	type DashboardActivityData,
+	type DashboardDomainActivity,
+	getTodayFocusMeta,
+} from "@sitecue/shared";
 import { Activity, CalendarDays, Edit3, FileText, Layers } from "lucide-react";
 import { Suspense } from "react";
 import { CustomLink, CustomLink as Link } from "@/components/ui/custom-link";
 import { SWRBoundary } from "@/components/ui/swr-boundary";
-import { useFetchDashboardData } from "@/hooks/useDashboardQuery";
+import {
+	useFetchDashboardActivity,
+	useFetchDashboardDomains,
+} from "@/hooks/useDashboardQuery";
 import { AppendDiaryButton } from "./AppendDiaryButton";
 import { ContributionTimeline } from "./ContributionTimeline";
 import { DomainDashboardCard } from "./DomainDashboardCard";
@@ -14,19 +21,47 @@ import {
 	ContributionTimelineSkeleton,
 	DomainDashboardGridSkeleton,
 	RadialActivityChartSkeleton,
-	TodayRecapCardSkeleton,
+	TodayEntryCountSkeleton,
 } from "./Skeletons";
 
-function TopSectionSkeleton() {
+function TodayEntryCountContent({ todayTotal }: { todayTotal: number }) {
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-			<TodayRecapCardSkeleton />
-			<RadialActivityChartSkeleton />
+		<div className="flex flex-col justify-center items-center text-center mt-2">
+			<div className="flex items-baseline gap-1">
+				<span className="text-4xl font-black tracking-tighter text-action drop-shadow-sm font-mono">
+					{todayTotal}
+				</span>
+				<span className="text-xs text-neutral-400 font-bold font-mono">
+					new entries today
+				</span>
+			</div>
 		</div>
 	);
 }
 
-function TopSectionContent({ data }: { data: DashboardOverviewData }) {
+function TodayEntryCountSlot({
+	data,
+	isLoading,
+}: {
+	data: DashboardActivityData | undefined;
+	isLoading: boolean;
+}) {
+	return (
+		<Suspense fallback={<TodayEntryCountSkeleton />}>
+			<SWRBoundary
+				data={data}
+				fallback={<TodayEntryCountSkeleton />}
+				isLoading={isLoading}
+			>
+				{(resolvedData) => (
+					<TodayEntryCountContent todayTotal={resolvedData.todayTotal} />
+				)}
+			</SWRBoundary>
+		</Suspense>
+	);
+}
+
+function WeeklyProgressContent({ data }: { data: DashboardActivityData }) {
 	const targetNotes = 20;
 	const targetDrafts = 5;
 	const notePct = Math.min(100, (data.noteCount7d / targetNotes) * 100);
@@ -69,211 +104,159 @@ function TopSectionContent({ data }: { data: DashboardOverviewData }) {
 		.slice(0, 5);
 
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-			{/* Today's Focus */}
-			<div className="flex flex-col justify-between items-center p-5 rounded-xl bg-base-surface border border-base-border h-full min-h-[340px] md:min-h-[320px]">
-				<div className="flex justify-between items-start w-full">
-					<span className="text-[10px] uppercase tracking-wider text-neutral-400 font-mono">
-						Today's Focus
-					</span>
-					<CustomLink
-						className="p-1.5 text-neutral-400 hover-safe:text-action hover-safe:bg-neutral-100 rounded-full transition-colors"
-						href={`/notes?view=diaries&year=${data.currentYear}&month=${data.currentMonth}`}
-						title="View Diaries Timeline"
+		<div className="flex flex-col gap-6 p-6 rounded-xl border border-base-border md:col-span-2 h-full justify-between">
+			<div className="flex flex-col md:flex-row items-center gap-6 flex-1 my-auto">
+				<div className="relative w-32 h-32 flex items-center justify-center shrink-0">
+					<svg
+						className="w-full h-full transform -rotate-90"
+						viewBox="0 0 160 160"
+						aria-label="Weekly activity circular progress chart"
+						role="img"
 					>
-						<CalendarDays aria-hidden="true" className="w-4 h-4" />
-					</CustomLink>
-				</div>
-				<div className="flex flex-col items-center gap-4 my-4 flex-1">
-					<CustomLink
-						className="relative w-24 h-28 md:w-20 md:h-24 lg:w-28 lg:h-32 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-base-border/60 overflow-hidden flex flex-col items-center select-none shrink-0 hover:scale-102 transition-transform cursor-pointer group/box"
-						href={`/diaries/${data.todayStr}`}
-					>
-						<div className="w-full bg-action py-1 text-center text-[9px] font-bold tracking-wider text-white font-mono">
-							{data.monthYearStr}
-						</div>
-						<div className="flex-1 flex items-center justify-center">
-							<span className="text-5xl font-black tracking-tighter text-neutral-900 dark:text-neutral-100 font-mono">
-								{data.dayNumStr}
-							</span>
-						</div>
-						<div className="w-full text-center pb-1.5 text-[9px] font-bold tracking-widest text-neutral-400 font-mono">
-							{data.weekdayStr}
-						</div>
-					</CustomLink>
-					<AppendDiaryButton />
-					<div className="flex flex-col justify-center items-center text-center mt-2">
-						<div className="flex items-baseline gap-1">
-							<span className="text-4xl font-black tracking-tighter text-action drop-shadow-sm font-mono">
-								{data.todayTotal}
-							</span>
-							<span className="text-xs text-neutral-400 font-bold font-mono">
-								new entries today
-							</span>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			{/* Weekly Progress */}
-			<div className="flex flex-col gap-6 p-6 rounded-xl border border-base-border md:col-span-2 h-full justify-between">
-				<div className="flex flex-col md:flex-row items-center gap-6 flex-1 my-auto">
-					<div className="relative w-32 h-32 flex items-center justify-center shrink-0">
-						<svg
-							className="w-full h-full transform -rotate-90"
-							viewBox="0 0 160 160"
-							aria-label="Weekly activity circular progress chart"
-							role="img"
-						>
-							<circle
-								cx="80"
-								cy="80"
-								r={r1}
-								className="stroke-neutral-100 dark:stroke-neutral-800"
-								strokeWidth="8"
-								fill="transparent"
-							/>
-							<circle
-								cx="80"
-								cy="80"
-								r={r1}
-								stroke="var(--color-note-info)"
-								strokeWidth="8"
-								fill="transparent"
-								strokeDasharray={c1}
-								strokeDashoffset={offset1}
-								strokeLinecap="round"
-								className="transition-all duration-500 ease-out"
-							/>
-							<circle
-								cx="80"
-								cy="80"
-								r={r2}
-								className="stroke-neutral-100 dark:stroke-neutral-800"
-								strokeWidth="8"
-								fill="transparent"
-							/>
-							<circle
-								cx="80"
-								cy="80"
-								r={r2}
-								stroke="var(--color-note-idea)"
-								strokeWidth="8"
-								fill="transparent"
-								strokeDasharray={c2}
-								strokeDashoffset={offset2}
-								strokeLinecap="round"
-								className="transition-all duration-500 ease-out"
-							/>
-						</svg>
-						<div className="absolute flex flex-col items-center justify-center text-center">
-							<span className="text-2xl font-bold tracking-tight text-action">
-								{data.noteCount7d + data.draftCount7d}
-							</span>
-							<span className="text-[8px] uppercase tracking-wider text-neutral-500 font-mono">
-								Activities
-							</span>
-						</div>
-					</div>
-					<div className="flex-1 flex flex-col justify-center gap-4 w-full">
-						<div>
-							<h3 className="text-xl font-bold text-action">Weekly Progress</h3>
-							<p className="text-xs text-neutral-500 mt-0.5">
-								Your note-taking activity over the last 7 days.
-							</p>
-						</div>
-						<div className="flex flex-col gap-3">
-							<div className="flex items-center justify-between text-xs">
-								<div className="flex items-center gap-2">
-									<div className="w-2.5 h-2.5 rounded-full bg-note-info shrink-0" />
-									<FileText
-										aria-hidden="true"
-										className="w-3.5 h-3.5 text-neutral-500"
-									/>
-									<span className="font-medium text-action">
-										Notes Captured
-									</span>
-								</div>
-								<div className="font-mono text-neutral-600 font-bold text-sm">
-									{data.noteCount7d}
-								</div>
-							</div>
-							<div className="flex items-center justify-between text-xs">
-								<div className="flex items-center gap-2">
-									<div className="w-2.5 h-2.5 rounded-full bg-note-idea shrink-0" />
-									<Edit3
-										aria-hidden="true"
-										className="w-3.5 h-3.5 text-neutral-500"
-									/>
-									<span className="font-medium text-action">
-										Drafts Created
-									</span>
-								</div>
-								<div className="font-mono text-neutral-600 font-bold text-sm">
-									{data.draftCount7d}
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-				{recentItems.length > 0 && (
-					<div className="pt-4 border-t border-base-border/60 flex flex-col gap-2 w-full min-w-0 shrink-0">
-						<span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-							Recent Items
+						<circle
+							cx="80"
+							cy="80"
+							r={r1}
+							className="stroke-neutral-100 dark:stroke-neutral-800"
+							strokeWidth="8"
+							fill="transparent"
+						/>
+						<circle
+							cx="80"
+							cy="80"
+							r={r1}
+							stroke="var(--color-note-info)"
+							strokeWidth="8"
+							fill="transparent"
+							strokeDasharray={c1}
+							strokeDashoffset={offset1}
+							strokeLinecap="round"
+							className="transition-all duration-500 ease-out"
+						/>
+						<circle
+							cx="80"
+							cy="80"
+							r={r2}
+							className="stroke-neutral-100 dark:stroke-neutral-800"
+							strokeWidth="8"
+							fill="transparent"
+						/>
+						<circle
+							cx="80"
+							cy="80"
+							r={r2}
+							stroke="var(--color-note-idea)"
+							strokeWidth="8"
+							fill="transparent"
+							strokeDasharray={c2}
+							strokeDashoffset={offset2}
+							strokeLinecap="round"
+							className="transition-all duration-500 ease-out"
+						/>
+					</svg>
+					<div className="absolute flex flex-col items-center justify-center text-center">
+						<span className="text-2xl font-bold tracking-tight text-action">
+							{data.noteCount7d + data.draftCount7d}
 						</span>
-						<div className="flex flex-col gap-1.5 w-full min-w-0">
-							{recentItems.map((item) => (
-								<Link
-									className="grid grid-cols-[14px_minmax(0,1fr)] gap-2 items-center text-xs text-neutral-600 hover-safe:text-action transition-colors w-full min-w-0"
-									href={item.href}
-									key={item.id}
-								>
-									<div className="shrink-0">
-										{item.type === "note" ? (
-											<FileText
-												aria-hidden="true"
-												className="w-3.5 h-3.5 text-neutral-400"
-											/>
-										) : (
-											<Edit3
-												aria-hidden="true"
-												className="w-3.5 h-3.5 text-neutral-400"
-											/>
-										)}
-									</div>
-									<span
-										className={`truncate font-sans ${item.isResolved ? "line-through opacity-50" : ""}`}
-										title={item.content || item.title}
-									>
-										{item.content
-											? item.content.replace(/[#*`-]/g, "")
-											: item.title}
-									</span>
-								</Link>
-							))}
+						<span className="text-[8px] uppercase tracking-wider text-neutral-500 font-mono">
+							Activities
+						</span>
+					</div>
+				</div>
+				<div className="flex-1 flex flex-col justify-center gap-4 w-full">
+					<div>
+						<h3 className="text-xl font-bold text-action">Weekly Progress</h3>
+						<p className="text-xs text-neutral-500 mt-0.5">
+							Your note-taking activity over the last 7 days.
+						</p>
+					</div>
+					<div className="flex flex-col gap-3">
+						<div className="flex items-center justify-between text-xs">
+							<div className="flex items-center gap-2">
+								<div className="w-2.5 h-2.5 rounded-full bg-note-info shrink-0" />
+								<FileText
+									aria-hidden="true"
+									className="w-3.5 h-3.5 text-neutral-500"
+								/>
+								<span className="font-medium text-action">Notes Captured</span>
+							</div>
+							<div className="font-mono text-neutral-600 font-bold text-sm">
+								{data.noteCount7d}
+							</div>
+						</div>
+						<div className="flex items-center justify-between text-xs">
+							<div className="flex items-center gap-2">
+								<div className="w-2.5 h-2.5 rounded-full bg-note-idea shrink-0" />
+								<Edit3
+									aria-hidden="true"
+									className="w-3.5 h-3.5 text-neutral-500"
+								/>
+								<span className="font-medium text-action">Drafts Created</span>
+							</div>
+							<div className="font-mono text-neutral-600 font-bold text-sm">
+								{data.draftCount7d}
+							</div>
 						</div>
 					</div>
-				)}
+				</div>
 			</div>
+			{recentItems.length > 0 && (
+				<div className="pt-4 border-t border-base-border/60 flex flex-col gap-2 w-full min-w-0 shrink-0">
+					<span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+						Recent Items
+					</span>
+					<div className="flex flex-col gap-1.5 w-full min-w-0">
+						{recentItems.map((item) => (
+							<Link
+								className="grid grid-cols-[14px_minmax(0,1fr)] gap-2 items-center text-xs text-neutral-600 hover-safe:text-action transition-colors w-full min-w-0"
+								href={item.href}
+								key={item.id}
+							>
+								<div className="shrink-0">
+									{item.type === "note" ? (
+										<FileText
+											aria-hidden="true"
+											className="w-3.5 h-3.5 text-neutral-400"
+										/>
+									) : (
+										<Edit3
+											aria-hidden="true"
+											className="w-3.5 h-3.5 text-neutral-400"
+										/>
+									)}
+								</div>
+								<span
+									className={`truncate font-sans ${item.isResolved ? "line-through opacity-50" : ""}`}
+									title={item.content || item.title}
+								>
+									{item.content
+										? item.content.replace(/[#*`-]/g, "")
+										: item.title}
+								</span>
+							</Link>
+						))}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
 
-function TopSectionSlot({
+function WeeklyProgressSlot({
 	data,
 	isLoading,
 }: {
-	data: DashboardOverviewData | undefined;
+	data: DashboardActivityData | undefined;
 	isLoading: boolean;
 }) {
 	return (
-		<Suspense fallback={<TopSectionSkeleton />}>
+		<Suspense fallback={<RadialActivityChartSkeleton />}>
 			<SWRBoundary
 				data={data}
-				fallback={<TopSectionSkeleton />}
+				fallback={<RadialActivityChartSkeleton />}
 				isLoading={isLoading}
 			>
-				{(resolvedData) => <TopSectionContent data={resolvedData} />}
+				{(resolvedData) => <WeeklyProgressContent data={resolvedData} />}
 			</SWRBoundary>
 		</Suspense>
 	);
@@ -282,7 +265,7 @@ function TopSectionSlot({
 function DomainActivityContent({
 	domainActivities,
 }: {
-	domainActivities: DashboardOverviewData["domainActivities"];
+	domainActivities: DashboardDomainActivity[];
 }) {
 	if (domainActivities.length === 0) {
 		return (
@@ -306,7 +289,7 @@ function DomainActivitySlot({
 	data,
 	isLoading,
 }: {
-	data: DashboardOverviewData | undefined;
+	data: DashboardDomainActivity[] | undefined;
 	isLoading: boolean;
 }) {
 	return (
@@ -316,10 +299,8 @@ function DomainActivitySlot({
 				fallback={<DomainDashboardGridSkeleton />}
 				isLoading={isLoading}
 			>
-				{(resolvedData) => (
-					<DomainActivityContent
-						domainActivities={resolvedData.domainActivities}
-					/>
+				{(resolvedDomains) => (
+					<DomainActivityContent domainActivities={resolvedDomains} />
 				)}
 			</SWRBoundary>
 		</Suspense>
@@ -330,7 +311,7 @@ function ActivityLogSlot({
 	data,
 	isLoading,
 }: {
-	data: DashboardOverviewData | undefined;
+	data: DashboardActivityData | undefined;
 	isLoading: boolean;
 }) {
 	return (
@@ -352,14 +333,63 @@ function ActivityLogSlot({
 }
 
 export function DashboardContainer() {
-	const { data, isLoading } = useFetchDashboardData();
+	const todayMeta = getTodayFocusMeta();
+	const { data: activityData, isLoading: isActivityLoading } =
+		useFetchDashboardActivity();
+	const { data: domainsData, isLoading: isDomainsLoading } =
+		useFetchDashboardDomains();
 
 	return (
 		<div className="flex-1 bg-base-bg text-action font-sans overflow-y-auto">
 			<div className="mx-auto px-4 py-8 md:px-6 md:py-12 flex flex-col gap-12">
-				{/* Top Section Slot */}
+				{/* Top Section: 0ms Today's Focus Shell + Weekly Progress Slot */}
 				<section>
-					<TopSectionSlot data={data} isLoading={isLoading} />
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+						{/* Today's Focus (0ms Unblocked UI Shell) */}
+						<div className="flex flex-col justify-between items-center p-5 rounded-xl bg-base-surface border border-base-border h-full min-h-[340px] md:min-h-[320px]">
+							<div className="flex justify-between items-start w-full">
+								<span className="text-[10px] uppercase tracking-wider text-neutral-400 font-mono">
+									Today's Focus
+								</span>
+								<CustomLink
+									className="p-1.5 text-neutral-400 hover-safe:text-action hover-safe:bg-neutral-100 rounded-full transition-colors"
+									href={`/notes?view=diaries&year=${todayMeta.currentYear}&month=${todayMeta.currentMonth}`}
+									title="View Diaries Timeline"
+								>
+									<CalendarDays aria-hidden="true" className="w-4 h-4" />
+								</CustomLink>
+							</div>
+							<div className="flex flex-col items-center gap-4 my-4 flex-1">
+								<CustomLink
+									className="relative w-24 h-28 md:w-20 md:h-24 lg:w-28 lg:h-32 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-base-border/60 overflow-hidden flex flex-col items-center select-none shrink-0 hover:scale-102 transition-transform cursor-pointer group/box"
+									href={`/diaries/${todayMeta.todayStr}`}
+								>
+									<div className="w-full bg-action py-1 text-center text-[9px] font-bold tracking-wider text-white font-mono">
+										{todayMeta.monthYearStr}
+									</div>
+									<div className="flex-1 flex items-center justify-center">
+										<span className="text-5xl font-black tracking-tighter text-neutral-900 dark:text-neutral-100 font-mono">
+											{todayMeta.dayNumStr}
+										</span>
+									</div>
+									<div className="w-full text-center pb-1.5 text-[9px] font-bold tracking-widest text-neutral-400 font-mono">
+										{todayMeta.weekdayStr}
+									</div>
+								</CustomLink>
+								<AppendDiaryButton />
+								<TodayEntryCountSlot
+									data={activityData}
+									isLoading={isActivityLoading}
+								/>
+							</div>
+						</div>
+
+						{/* Weekly Progress Slot */}
+						<WeeklyProgressSlot
+							data={activityData}
+							isLoading={isActivityLoading}
+						/>
+					</div>
 				</section>
 
 				{/* Domain Activity Section (0ms 常時表示見出し + 局所保護スロット) */}
@@ -370,7 +400,7 @@ export function DashboardContainer() {
 							Domain Activity
 						</h2>
 					</div>
-					<DomainActivitySlot data={data} isLoading={isLoading} />
+					<DomainActivitySlot data={domainsData} isLoading={isDomainsLoading} />
 				</section>
 
 				{/* Activity Log Section (0ms 常時表示見出し + 局所保護スロット) */}
@@ -381,7 +411,7 @@ export function DashboardContainer() {
 							Activity Log
 						</h2>
 					</div>
-					<ActivityLogSlot data={data} isLoading={isLoading} />
+					<ActivityLogSlot data={activityData} isLoading={isActivityLoading} />
 				</section>
 			</div>
 		</div>

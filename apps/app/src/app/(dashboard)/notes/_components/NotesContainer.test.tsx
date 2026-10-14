@@ -368,4 +368,36 @@ describe("NotesContainer - exact=all All Notes Integration", () => {
 			expect(middlePane).toHaveTextContent("2 items");
 		});
 	});
+
+	it("hydrates selectedNote content immediately even when selectedNote is outside middle-pane filteredItems", async () => {
+		mockFetchContentMutate.mockClear();
+		vi.mocked(useSearchParams).mockReturnValue(
+			new URLSearchParams(
+				"?view=domains&domain=other.com&noteId=unhydrated-selected-note",
+			) as unknown as ReturnType<typeof useSearchParams>,
+		);
+
+		vi.mocked(useFetchNotes).mockReturnValue({
+			data: [
+				{
+					id: "unhydrated-selected-note",
+					content: undefined,
+					url_pattern: "example.com",
+					scope: "domain",
+					is_pinned: false,
+					sort_order: 0,
+					created_at: new Date().toISOString(),
+				},
+			],
+			isLoading: false,
+		} as unknown as ReturnType<typeof useFetchNotes>);
+
+		render(<NotesContainer />);
+
+		await waitFor(() => {
+			expect(mockFetchContentMutate).toHaveBeenCalledWith([
+				"unhydrated-selected-note",
+			]);
+		});
+	});
 });

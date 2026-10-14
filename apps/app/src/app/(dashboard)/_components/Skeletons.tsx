@@ -173,3 +173,11 @@ export function ContributionTimelineSkeleton() {
 		</div>
 	);
 }
+
+export function TodayEntryCountSkeleton() {
+	return (
+		<div className="flex flex-col justify-center items-center text-center mt-2">
+			<Skeleton className="h-10 w-36 rounded-lg" />
+		</div>
+	);
+}
