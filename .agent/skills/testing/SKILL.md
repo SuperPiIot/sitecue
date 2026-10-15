@@ -14,6 +14,14 @@ description: AI-TDD、Vitest、MSW、Playwright、およびテストモックの
 - **E2E (`apps/app/e2e/`)**: `Playwright`
 - **コロケーション原則**: テストファイルは対象ファイルと同階層に配置すること（`[対象名].test.ts(x)`）。専用の `__tests__` ディレクトリを勝手に作らないこと。
 
+### 【絶対遵守】テスト・Lint実行コマンド規約
+ルート直下での裸の `bun test` 実行は厳禁。Next.js の `(dashboard)` 等の丸括弧による zsh エラー（`no matches found`）を防ぐため、**対象パスは必ずシングルクォート（`'...'`）で囲み**、以下の `--filter` コマンドでピンポイント実行すること。
+- Web: `bun --filter @sitecue/app test '[対象パス]'`
+- Extension: `bun --filter @sitecue/extension test '[対象パス]'`
+- Shared: `bun --filter @sitecue/shared test '[対象パス]'`
+- API: `bun --filter @sitecue/api test '[対象パス]'`
+- Biome検証: `bun x @biomejs/biome check '[対象パス]'`
+
 ## 2. Mocking & Async Assertions
 - **MSW の活用**: Web側の外部通信は MSW で傍受すること。MSW は0秒レスポンスのため、`isLoading === true` の一瞬の検証は避け、`await screen.findByText(...)` で最終描画結果を検証すること。
 - **TestDataBuilder パターン**: 巨大なデータモデル（`Note`, `Draft` 等）をモックする際は `as any` や `Partial` を使わず、必ず `mocks/factories.ts` のファクトリ関数（`createMockNote` 等）を使用すること。
