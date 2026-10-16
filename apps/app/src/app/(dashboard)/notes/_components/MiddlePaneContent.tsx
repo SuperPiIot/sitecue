@@ -15,7 +15,7 @@ import {
 import { type Diary, getSafeUrl } from "@sitecue/shared";
 import { ChevronRight, FileText, Globe, Inbox, Layers } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { CustomLink as Link } from "@/components/ui/custom-link";
 import { DomainFavicon } from "../../_components/DomainFavicon";
 import type { Draft, GroupedNotes, Note } from "../types";
@@ -95,24 +95,38 @@ export function MiddlePaneContent({
 		(item): item is Diary => "date" in item && !("note_type" in item),
 	);
 
-	const sentinelRef = useRef<HTMLDivElement>(null);
+	const observerRef = useRef<IntersectionObserver | null>(null);
+
+	const sentinelCallbackRef = useCallback(
+		(node: HTMLDivElement | null) => {
+			if (observerRef.current) {
+				observerRef.current.disconnect();
+				observerRef.current = null;
+			}
+			if (!node) return;
+
+			const observer = new IntersectionObserver(
+				(entries) => {
+					if (entries[0]?.isIntersecting) {
+						onLoadMore();
+					}
+				},
+				{ root: scrollRef.current, rootMargin: "200px" },
+			);
+
+			observer.observe(node);
+			observerRef.current = observer;
+		},
+		[onLoadMore, scrollRef],
+	);
 
 	useEffect(() => {
-		const sentinel = sentinelRef.current;
-		if (!sentinel) return;
-
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (entries[0]?.isIntersecting) {
-					onLoadMore();
-				}
-			},
-			{ root: scrollRef.current, rootMargin: "200px" },
-		);
-
-		observer.observe(sentinel);
-		return () => observer.disconnect();
-	}, [onLoadMore, scrollRef]);
+		return () => {
+			if (observerRef.current) {
+				observerRef.current.disconnect();
+			}
+		};
+	}, []);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -504,7 +518,8 @@ export function MiddlePaneContent({
 							)}
 							{visibleItems.length < searchedDisplayItems.length && (
 								<div
-									ref={sentinelRef}
+									ref={sentinelCallbackRef}
+									data-testid="scroll-sentinel"
 									className="h-4 w-full pointer-events-none"
 								/>
 							)}

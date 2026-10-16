@@ -7,7 +7,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useDeleteNotes, useUpdateNote } from "@/hooks/useNotesQuery";
+import {
+	useDeleteNotes,
+	useFetchNoteContents,
+	useUpdateNote,
+} from "@/hooks/useNotesQuery";
 import type { Draft, GroupedNotes, Note } from "../types";
 import { MiddlePaneContent } from "./MiddlePaneContent";
 import { type FilterType, MiddlePaneHeader } from "./MiddlePaneHeader";
@@ -82,6 +86,8 @@ export function MiddlePaneList(props: Props) {
 
 	const { mutateAsync: updateNote } = useUpdateNote();
 	const { mutateAsync: deleteNotesAsync } = useDeleteNotes();
+	const { mutateAsync: fetchNoteContentsAsync } = useFetchNoteContents();
+	const inFlightIdsRef = useRef<Set<string>>(new Set());
 
 	const handleLoadMore = useCallback(() => {
 		setVisibleCount((prev) => prev + defaultBatchSize);
@@ -319,32 +325,85 @@ export function MiddlePaneList(props: Props) {
 		[localItems, isSorting, currentExact, updateNote, router, items],
 	);
 
-	const displayItems = localItems.filter((item): item is Note | Draft => {
-		const isDiary = "date" in item && !("note_type" in item);
-		if (isDiary) return false;
+	const displayItems = useMemo(() => {
+		return localItems.filter((item): item is Note | Draft => {
+			const isDiary = "date" in item && !("note_type" in item);
+			if (isDiary) return false;
 
-		const isNote = "note_type" in item;
-		if (isNote && item.is_resolved && !showResolved) return false;
+			const isNote = "note_type" in item;
+			if (isNote && item.is_resolved && !showResolved) return false;
 
-		if (filterType !== "all") {
-			if (!isNote || item.note_type !== filterType) return false;
-		}
+			if (filterType !== "all") {
+				if (!isNote || item.note_type !== filterType) return false;
+			}
 
-		return true;
-	});
+			return true;
+		});
+	}, [localItems, showResolved, filterType]);
 
-	const searchedDisplayItems = displayItems.filter((item) => {
-		if (!query) return true;
-		const contentMatch =
-			"content" in item && item.content?.toLowerCase().includes(query);
-		const titleMatch =
-			"title" in item && item.title?.toLowerCase().includes(query);
-		const tagsMatch =
-			"tags" in item && item.tags?.some((t) => t.toLowerCase().includes(query));
-		return contentMatch || titleMatch || tagsMatch;
-	});
+	const searchedDisplayItems = useMemo(() => {
+		return displayItems.filter((item) => {
+			if (!query) return true;
+			const contentMatch =
+				"content" in item && item.content?.toLowerCase().includes(query);
+			const titleMatch =
+				"title" in item && item.title?.toLowerCase().includes(query);
+			const tagsMatch =
+				"tags" in item &&
+				item.tags?.some((t) => t.toLowerCase().includes(query));
+			return contentMatch || titleMatch || tagsMatch;
+		});
+	}, [displayItems, query]);
 
 	const isSearchActive = !!inputValue || !!searchParams.get("tags");
+
+	// 実際に中ペインにノートカード一覧が描画されるコンテキストかを厳密に判定（フォルダ階層表示時は除外）
+	const isNoteListRendered = useMemo(() => {
+		if (currentView === "drafts" || currentView === "diaries") return false;
+		if (currentView === "domains" && !currentDomain) return false;
+		if (currentDomain && currentDomain !== "inbox" && !currentExact)
+			return false;
+		return !!currentView || !!currentDomain || !!currentExact || isSearchActive;
+	}, [currentView, currentDomain, currentExact, isSearchActive]);
+
+	// 可視範囲（visibleCount）内の未取得ノート本文を 100ms デバウンスで自動バッチフェッチ
+	useEffect(() => {
+		if (!isNoteListRendered) return;
+
+		const currentVisible = searchedDisplayItems.slice(0, visibleCount);
+		const missingIds = currentVisible
+			.filter(
+				(item): item is Note =>
+					"note_type" in item &&
+					item.content === undefined &&
+					!inFlightIdsRef.current.has(item.id),
+			)
+			.map((item) => item.id);
+
+		if (missingIds.length === 0) return;
+
+		const timer = setTimeout(async () => {
+			for (const id of missingIds) {
+				inFlightIdsRef.current.add(id);
+			}
+			try {
+				await fetchNoteContentsAsync(missingIds);
+			} catch (err) {
+				console.error("Failed to fetch note contents:", err);
+			} finally {
+				for (const id of missingIds) {
+					inFlightIdsRef.current.delete(id);
+				}
+			}
+		}, 100);
+
+		return () => clearTimeout(timer);
+	}, [
+		isNoteListRendered,
+		searchedDisplayItems,
+		visibleCount,
+		fetchNoteContentsAsync,
+	]);
 
 	return (
 		<div className="flex flex-col h-full bg-base-bg md:border-r md:border-base-border md:w-96">

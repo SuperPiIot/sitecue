@@ -4,9 +4,10 @@ import {
 	fireEvent,
 	render,
 	screen,
+	waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { groupNotes } from "@/store/useNotesStore";
 import type { Note } from "../types";
 import { MiddlePaneList } from "./MiddlePaneList";
@@ -41,12 +42,48 @@ const mockMutate: {
 	(...args: unknown[]): unknown;
 	impl: (...args: unknown[]) => unknown;
 } = (...args: unknown[]) => mockMutate.impl(...args);
-mockMutate.impl = () => {};
+mockMutate.impl = () => Promise.resolve({});
+
+const mockUpdateNote = vi.fn((...args: unknown[]) => mockMutate(...args));
+const mockDeleteNotes = vi.fn((...args: unknown[]) => mockMutate(...args));
+const mockFetchNoteContentsAsync = vi.fn().mockResolvedValue([]);
 
 vi.mock("@/hooks/useNotesQuery", () => ({
-	useUpdateNote: () => ({ mutate: mockMutate, mutateAsync: mockMutate }),
-	useDeleteNotes: () => ({ mutate: mockMutate, mutateAsync: mockMutate }),
+	useUpdateNote: () => ({ mutate: mockMutate, mutateAsync: mockUpdateNote }),
+	useDeleteNotes: () => ({ mutate: mockMutate, mutateAsync: mockDeleteNotes }),
+	useFetchNoteContents: () => ({
+		mutate: mockFetchNoteContentsAsync,
+		mutateAsync: mockFetchNoteContentsAsync,
+	}),
 }));
+
+// IntersectionObserver のモックと発火ヘルパーを定義
+let intersectionCallback: IntersectionObserverCallback | null = null;
+const mockObserve = vi.fn();
+const mockDisconnect = vi.fn();
+
+beforeEach(() => {
+	intersectionCallback = null;
+	mockObserve.mockClear();
+	mockDisconnect.mockClear();
+	mockFetchNoteContentsAsync.mockClear();
+
+	// biome-ignore lint/complexity/useArrowFunction: Constructor mock for IntersectionObserver
+	globalThis.IntersectionObserver = vi.fn(function (
+		callback: IntersectionObserverCallback,
+	) {
+		intersectionCallback = callback;
+		return {
+			observe: mockObserve,
+			unobserve: vi.fn(),
+			disconnect: mockDisconnect,
+			takeRecords: () => [],
+			root: null,
+			rootMargin: "",
+			thresholds: [],
+		};
+	}) as unknown as typeof IntersectionObserver;
+});
 
 // Mock DndContext safely using a mock-prefixed bridge
 const mockLastOnDragEndContainer: {
@@ -113,6 +150,8 @@ const mockGroupedNotes = {
 	drafts: [],
 	domains: {},
 };
+
+const mockNotes = mockItems;
 
 describe("MiddlePaneList Component Integration", () => {
 	afterEach(() => {
@@ -1293,5 +1332,133 @@ describe("MiddlePaneList Scroll Retention on Pin Toggle", () => {
 
 		// スクロール位置が250に維持されていることを確認
 		expect(scrollContainer.scrollTop).toBe(250);
+	});
+});
+
+describe("MiddlePaneList - On-Demand Content Hydration & Scroll Sync", () => {
+	it("fetches missing note contents for visible items when note list is rendered", async () => {
+		const unhydratedNotes: Note[] = [
+			{
+				...mockNotes[0],
+				id: "unhydrated-1",
+				content: undefined as unknown as string,
+			},
+			{
+				...mockNotes[1],
+				id: "hydrated-2",
+				content: "Already has content",
+			},
+		];
+
+		render(
+			<MiddlePaneList
+				items={unhydratedNotes}
+				groupedNotes={mockGroupedNotes}
+				currentView="inbox"
+				currentDomain={null}
+				currentExact={null}
+				selectedNoteId={null}
+				selectedDraftId={null}
+			/>,
+		);
+
+		await waitFor(() => {
+			expect(mockFetchNoteContentsAsync).toHaveBeenCalledWith(["unhydrated-1"]);
+		});
+	});
+
+	it("does NOT fetch note contents when displaying domain folder list (currentView=domains & !currentDomain)", async () => {
+		const unhydratedNotes: Note[] = [
+			{
+				...mockNotes[0],
+				id: "unhydrated-folder-1",
+				content: undefined as unknown as string,
+			},
+		];
+
+		render(
+			<MiddlePaneList
+				items={unhydratedNotes}
+				groupedNotes={mockGroupedNotes}
+				currentView="domains"
+				currentDomain={null}
+				currentExact={null}
+				selectedNoteId={null}
+				selectedDraftId={null}
+			/>,
+		);
+
+		await new Promise((r) => setTimeout(r, 150));
+		expect(mockFetchNoteContentsAsync).not.toHaveBeenCalled();
+	});
+
+	it("loads more items and fetches newly visible missing contents when scroll sentinel intersects", async () => {
+		// モバイルデフォルト visibleCount = 20 を超える 25 件の未取得ノートを生成
+		const manyNotes: Note[] = Array.from({ length: 25 }, (_, i) => ({
+			...mockNotes[0],
+			id: `note-batch-${i + 1}`,
+			content: undefined as unknown as string,
+		}));
+
+		const { rerender } = render(
+			<MiddlePaneList
+				items={manyNotes}
+				groupedNotes={mockGroupedNotes}
+				currentView="inbox"
+				currentDomain={null}
+				currentExact={null}
+				selectedNoteId={null}
+				selectedDraftId={null}
+			/>,
+		);
+
+		// 1. 初期バッチ（先頭20件）の本文フェッチが発火すること
+		await waitFor(() => {
+			expect(mockFetchNoteContentsAsync).toHaveBeenCalledTimes(1);
+			const firstCallIds = mockFetchNoteContentsAsync.mock.calls[0][0];
+			expect(firstCallIds).toHaveLength(20);
+			expect(firstCallIds[0]).toBe("note-batch-1");
+			expect(firstCallIds[19]).toBe("note-batch-20");
+		});
+
+		// Sentinel が監視登録されていること
+		expect(mockObserve).toHaveBeenCalled();
+
+		// ハイドレーション後の items（先頭20件の content が反映された状態）を親から受け取る
+		const hydratedNotes = manyNotes.map((note, i) =>
+			i < 20 ? { ...note, content: `Content ${i + 1}` } : note,
+		);
+		rerender(
+			<MiddlePaneList
+				items={hydratedNotes}
+				groupedNotes={mockGroupedNotes}
+				currentView="inbox"
+				currentDomain={null}
+				currentExact={null}
+				selectedNoteId={null}
+				selectedDraftId={null}
+			/>,
+		);
+
+		// 2. IntersectionObserver の交差を発火させて visibleCount を 20 -> 40 に拡張
+		if (intersectionCallback) {
+			act(() => {
+				intersectionCallback?.(
+					[{ isIntersecting: true } as IntersectionObserverEntry],
+					{} as IntersectionObserver,
+				);
+			});
+		}
+
+		// 3. 追加された 21〜25 件目の未取得ノートに対して本文フェッチが発火すること
+		await waitFor(() => {
+			expect(mockFetchNoteContentsAsync).toHaveBeenCalledWith([
+				"note-batch-21",
+				"note-batch-22",
+				"note-batch-23",
+				"note-batch-24",
+				"note-batch-25",
+			]);
+		});
 	});
 });

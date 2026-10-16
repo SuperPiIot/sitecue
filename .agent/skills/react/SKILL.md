@@ -33,3 +33,8 @@ description: 楽観的UI、SWRBoundary仕様、UX、状態管理、コンポー�
 ## 5. Optimistic UI & Drag and Drop (@dnd-kit)
 - **楽観的UIのロック**: 並び替え等の処理中はステートで操作をロック（`disabled`）し、ロールバックの無限ループを防ぐこと。
 - **D&Dルールの徹底**: `useSortable` は1アイテムにつき1回のみ呼び出し。ドラッグハンドルには `style={{ touchAction: "none" }}` を付与。`<DndContext>` には SSR の Hydration Error 防止のため固定 ID（例: `id="notes-dnd-context"`）を渡すこと。
+
+## 5. 無限スクロール Sentinel 監視規約 (Callback Ref Sentinel Rule)
+- 条件付きでマウントされるリスト最下部の監視要素（Sentinel）に対する `IntersectionObserver` の登録には、初期レンダー時に空振りする `useRef + useEffect` パターンを**禁止**する。
+- 必ず `useCallback` による **Callback Ref** と `observerRef` を組み合わせて実装し、DOM ノードのマウント・アンマウント時に確実に `observe` / `disconnect` が同期実行されるようにすること。
+
