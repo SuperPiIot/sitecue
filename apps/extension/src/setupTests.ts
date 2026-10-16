@@ -68,3 +68,61 @@ vi.mock("./supabaseClient", () => ({
 		}),
 	},
 }));
+
+// document.execCommand & document.queryCommandSupported mock for happy-dom
+if (typeof document !== "undefined") {
+	document.queryCommandSupported = vi.fn().mockReturnValue(true);
+	document.execCommand = vi
+		.fn()
+		.mockImplementation(
+			(command: string, _showUI?: boolean, value?: string) => {
+				const active = document.activeElement as
+					| HTMLTextAreaElement
+					| HTMLInputElement
+					| null;
+				if (
+					!active ||
+					(active.tagName !== "TEXTAREA" && active.tagName !== "INPUT")
+				) {
+					return false;
+				}
+				const start = active.selectionStart ?? 0;
+				const end = active.selectionEnd ?? 0;
+				const currentVal = active.value;
+
+				if (command === "insertText" && typeof value === "string") {
+					active.value =
+						currentVal.slice(0, start) + value + currentVal.slice(end);
+					active.selectionStart = start + value.length;
+					active.selectionEnd = active.selectionStart;
+					active.dispatchEvent(new Event("input", { bubbles: true }));
+					return true;
+				}
+				if (command === "delete") {
+					active.value = currentVal.slice(0, start) + currentVal.slice(end);
+					active.selectionStart = start;
+					active.selectionEnd = start;
+					active.dispatchEvent(new Event("input", { bubbles: true }));
+					return true;
+				}
+				return false;
+			},
+		);
+}
+
+if (
+	typeof HTMLTextAreaElement !== "undefined" &&
+	!HTMLTextAreaElement.prototype.setRangeText
+) {
+	HTMLTextAreaElement.prototype.setRangeText = function (
+		replacement: string,
+		start?: number,
+		end?: number,
+	) {
+		const s = start !== undefined ? start : this.selectionStart;
+		const e = end !== undefined ? end : this.selectionEnd;
+		this.value = this.value.slice(0, s) + replacement + this.value.slice(e);
+		this.selectionStart = s + replacement.length;
+		this.selectionEnd = s + replacement.length;
+	};
+}

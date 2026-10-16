@@ -393,3 +393,42 @@ describe("NoteInput Component - Slide Out & Auto-Recovery on Failure", () => {
 		});
 	});
 });
+
+describe("NoteInput Component - Markdown Assist Integration", () => {
+	const defaultProps = {
+		userPlan: "free" as const,
+		totalNoteCount: 10,
+		maxFreeNotes: 500,
+		initialScope: "exact" as const,
+		initialType: "info" as const,
+		onAddNote: vi.fn().mockResolvedValue(true),
+		onAppendDiary: vi.fn().mockResolvedValue(true),
+		onClose: vi.fn(),
+	};
+
+	it("Note入力欄およびDiary入力欄で、リスト行のEnterによるオートバレットと括弧ペア補完が機能すること", () => {
+		render(<NoteInput {...defaultProps} />);
+
+		// 1. Note入力欄でのオートバレット検証
+		const noteTextarea = screen.getByPlaceholderText(
+			/Add a cue to/i,
+		) as HTMLTextAreaElement;
+		fireEvent.focus(noteTextarea);
+		fireEvent.change(noteTextarea, { target: { value: "- item 1" } });
+		noteTextarea.setSelectionRange(8, 8);
+		fireEvent.keyDown(noteTextarea, { key: "Enter" });
+
+		expect(noteTextarea.value).toBe("- item 1\n- ");
+
+		// 2. Diary入力欄での括弧補完検証
+		const diaryTextarea = screen.getByPlaceholderText(
+			/Append log text/i,
+		) as HTMLTextAreaElement;
+		fireEvent.focus(diaryTextarea);
+		fireEvent.change(diaryTextarea, { target: { value: "" } });
+		diaryTextarea.setSelectionRange(0, 0);
+		fireEvent.keyDown(diaryTextarea, { key: "[" });
+
+		expect(diaryTextarea.value).toBe("[]");
+	});
+});

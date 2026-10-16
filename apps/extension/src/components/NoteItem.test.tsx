@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ComponentProps, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { AuthStatus } from "../hooks/useAuth";
@@ -155,6 +155,129 @@ describe("NoteItem Component", () => {
 		expect(screen.queryByTitle("Copy note")).not.toBeInTheDocument();
 		expect(screen.queryByTitle("Edit")).not.toBeInTheDocument();
 		expect(screen.queryByTitle("Delete")).not.toBeInTheDocument();
+	});
+
+	it("初期マウント時にcontentが空（Slim Fetching）かつ非表示（scrollHeight=0）であっても、Hydrationで長文かつis_expanded=trueが到着した際にShow lessボタンが表示され折りたためること", () => {
+		const mockOnToggleExpansion = vi.fn().mockResolvedValue(true);
+		const originalScrollHeight = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"scrollHeight",
+		);
+		Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+			configurable: true,
+			value: 0,
+		});
+
+		const slimFavoriteNote: Note = {
+			...mockNote,
+			id: "fav-hydrated-1",
+			content: "",
+			is_favorite: true,
+			is_expanded: true,
+		};
+
+		const { rerender } = render(
+			<NoteItemTestWrapper
+				note={slimFavoriteNote}
+				isFavoriteList={true}
+				onToggleExpansion={mockOnToggleExpansion}
+			/>,
+		);
+
+		expect(screen.queryByText("Show less")).not.toBeInTheDocument();
+
+		// 本文 Hydration 完了をシミュレート
+		const hydratedNote: Note = {
+			...slimFavoriteNote,
+			content: "Long favorite note content ".repeat(20),
+		};
+
+		rerender(
+			<NoteItemTestWrapper
+				note={hydratedNote}
+				isFavoriteList={true}
+				onToggleExpansion={mockOnToggleExpansion}
+			/>,
+		);
+
+		const showLessBtn = screen.getByText("Show less");
+		expect(showLessBtn).toBeInTheDocument();
+
+		fireEvent.click(showLessBtn);
+		expect(mockOnToggleExpansion).toHaveBeenCalledWith("fav-hydrated-1", true);
+
+		if (originalScrollHeight) {
+			Object.defineProperty(
+				HTMLElement.prototype,
+				"scrollHeight",
+				originalScrollHeight,
+			);
+		}
+	});
+
+	it("ResizeObserver発火時（アコーディオン開放でscrollHeightが0から200へ変化した際）、isOverflowingが再評価されShow lessボタンが表示されること", () => {
+		let resizeCallback: ResizeObserverCallback | null = null;
+		const OriginalResizeObserver = window.ResizeObserver;
+		// biome-ignore lint/complexity/useArrowFunction: function required for constructor call via 'new'
+		window.ResizeObserver = vi.fn().mockImplementation(function (cb) {
+			resizeCallback = cb;
+			return {
+				observe: vi.fn(),
+				disconnect: vi.fn(),
+				unobserve: vi.fn(),
+			};
+		}) as unknown as typeof ResizeObserver;
+
+		const originalScrollHeight = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"scrollHeight",
+		);
+		Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+			configurable: true,
+			value: 0,
+		});
+
+		// 120文字以下だが改行等で実寸高さが160pxを超える展開済みノート
+		const multilineExpandedNote: Note = {
+			...mockNote,
+			id: "fav-resize-1",
+			content: "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8",
+			is_favorite: true,
+			is_expanded: true,
+		};
+
+		render(
+			<NoteItemTestWrapper
+				note={multilineExpandedNote}
+				isFavoriteList={true}
+			/>,
+		);
+
+		// 非表示（scrollHeight=0 かつ 120文字以下）のため初期は未表示
+		expect(screen.queryByText("Show less")).not.toBeInTheDocument();
+
+		// アコーディオンが開いて実寸高さが 220px になった状態をシミュレート
+		Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+			configurable: true,
+			value: 220,
+		});
+
+		act(() => {
+			if (resizeCallback) {
+				(resizeCallback as () => void)();
+			}
+		});
+
+		expect(screen.getByText("Show less")).toBeInTheDocument();
+
+		if (originalScrollHeight) {
+			Object.defineProperty(
+				HTMLElement.prototype,
+				"scrollHeight",
+				originalScrollHeight,
+			);
+		}
+		window.ResizeObserver = OriginalResizeObserver;
 	});
 });
 

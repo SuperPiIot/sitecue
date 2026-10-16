@@ -31,5 +31,7 @@ description: Chrome拡張機能（WXT/Manifest V3）、OAuth認証、ゲスト�
 - **Command専用入力補助規約:** コマンド・コード入力領域の入力補助は「スペース2つのインデント・アウトデント」および「前行インデント深さの継承」に限定し、Markdown記号補完を混入させてはならない。
 - **お気に入り独立キャッシュ規約 (Favorite Isolation Principle):** お気に入り（Favorites）ノートは、Inboxと同様にURLに依存しないグローバルリソースである。URL変更イベント（`currentFullUrl` の変更）でお気に入りキャッシュを破棄・再フェッチしてはならない。初期ロード時に1回フェッチし、以後は手元操作時の0ms楽観的UIおよびバックグラウンドのサイレント・リフェッチで同期すること。
 - **シングルスクロール統合規約 (Single Scroll Viewport Rule):** サイドパネル内のノート編集画面（`NoteItem`）は、内部スクロールバーを発生させてはならず、コンテナ全体のスクロールバー1本で完結するよう高さを自動追従させること。
+- **無限スクロール Sentinel 監視規約 (Callback Ref Sentinel Rule):** リストの無限スクロールを司る `IntersectionObserver` の監視対象要素（sentinel）は、マウント遅延や非同期データ着信による登録漏れを防ぐため、`useEffect` + `useRef` ではなく必ず Callback Ref (`useCallback`) を用いて要素の出現時にアトミックに監視登録を行うこと。
+- **可視性連動サイズ測定規約 (ResizeObserver Collapsible Rule):** アコーディオンやタブ等で初期非表示（`display: none`）になり得るカードのテキスト溢れ・省略判定（`isOverflowing`）は、初期マウント時の一発測定（`scrollHeight`）に依存せず、`ResizeObserver` を用いて要素が可視化された瞬間のサイズ変化に自動追従させること。
 
 

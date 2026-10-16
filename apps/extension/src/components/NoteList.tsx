@@ -131,7 +131,7 @@ function NoteList({
 	}, [sortedAllNotes]);
 
 	const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
-	const sentinelRef = useRef<HTMLDivElement | null>(null);
+	const observerRef = useRef<IntersectionObserver | null>(null);
 
 	// ノート配列の変更時に表示件数を20件にリセット
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset visibleLimit whenever notes reference changes
@@ -139,24 +139,39 @@ function NoteList({
 		setVisibleLimit(PAGE_SIZE);
 	}, [notes]);
 
-	// スクロール監視と段階マウント（ドラッグ中はロック）
+	// スクロール監視と段階マウント（Callback Ref により DOM 出現時に確実にバインド、ドラッグ中はロック）
+	const setSentinelRef = useCallback(
+		(node: HTMLDivElement | null) => {
+			if (observerRef.current) {
+				observerRef.current.disconnect();
+				observerRef.current = null;
+			}
+
+			if (!node || typeof IntersectionObserver === "undefined") return;
+
+			const observer = new IntersectionObserver(
+				(entries) => {
+					const first = entries[0];
+					if (first?.isIntersecting && !activeDragNote) {
+						setVisibleLimit((prev) => prev + PAGE_SIZE);
+					}
+				},
+				{ threshold: 0.1 },
+			);
+
+			observer.observe(node);
+			observerRef.current = observer;
+		},
+		[activeDragNote],
+	);
+
 	useEffect(() => {
-		const sentinel = sentinelRef.current;
-		if (!sentinel) return;
-
-		const observer = new IntersectionObserver(
-			(entries) => {
-				const first = entries[0];
-				if (first.isIntersecting && !activeDragNote) {
-					setVisibleLimit((prev) => prev + PAGE_SIZE);
-				}
-			},
-			{ threshold: 0.1 },
-		);
-
-		observer.observe(sentinel);
-		return () => observer.disconnect();
-	}, [activeDragNote]);
+		return () => {
+			if (observerRef.current) {
+				observerRef.current.disconnect();
+			}
+		};
+	}, []);
 
 	const normalNotes = useMemo(() => {
 		return sortedAllNotes.filter((n) => !n.is_favorite && !n.is_pinned);
@@ -458,7 +473,8 @@ function NoteList({
 						</SortableContext>
 						{displayedNormalNotes.length < normalNotes.length && (
 							<div
-								ref={sentinelRef}
+								ref={setSentinelRef}
+								data-testid="infinite-scroll-sentinel"
 								className="h-4 w-full"
 								aria-hidden="true"
 							/>
