@@ -691,3 +691,90 @@ describe("NoteList Batch Deferred Filter Verification", () => {
 		expect(screen.getByText("Batch filter test content")).toBeInTheDocument();
 	});
 });
+
+describe("NoteList Infinite Scroll Callback Ref Verification", () => {
+	const baseProps = {
+		loading: false,
+		currentFullUrl: "https://example.com/page",
+		onUpdate: vi.fn(),
+		onDelete: vi.fn(),
+		onToggleResolved: vi.fn(),
+		onToggleFavorite: vi.fn(),
+		onTogglePinned: vi.fn(),
+		onUpdateNoteOrder: vi.fn(),
+		onToggleExpansion: vi.fn(),
+	};
+
+	it("初回マウント時に0件（sentinel不在）で後から25件のデータが到着した場合でも、IntersectionObserverが確実にバインドされスクロールで全件表示されること", () => {
+		let intersectCallback: IntersectionObserverCallback | null = null;
+		const observeSpy = vi.fn();
+		const disconnectSpy = vi.fn();
+
+		const OriginalIntersectionObserver = window.IntersectionObserver;
+		// biome-ignore lint/complexity/useArrowFunction: function required for constructor call via 'new'
+		window.IntersectionObserver = vi.fn().mockImplementation(function (cb) {
+			intersectCallback = cb;
+			return {
+				observe: observeSpy,
+				disconnect: disconnectSpy,
+				unobserve: vi.fn(),
+			};
+		}) as unknown as typeof IntersectionObserver;
+
+		const { rerender } = render(
+			<NoteList {...baseProps} notes={[]} scope="exact" />,
+		);
+
+		expect(
+			screen.queryByTestId("infinite-scroll-sentinel"),
+		).not.toBeInTheDocument();
+
+		// 25件のノートを生成して後から着信させる
+		const manyNotes: Note[] = Array.from({ length: 25 }, (_, i) => ({
+			id: `note-scroll-${i + 1}`,
+			content: `Scroll Note Item ${i + 1}`,
+			note_type: "info" as const,
+			scope: "exact" as const,
+			url_pattern: "example.com/page",
+			is_resolved: false,
+			is_pinned: false,
+			is_favorite: false,
+			is_expanded: false,
+			sort_order: i + 1,
+			created_at: new Date(2026, 0, 1, 0, i).toISOString(),
+			updated_at: new Date(2026, 0, 1, 0, i).toISOString(),
+			user_id: "user-1",
+			draft_id: null,
+			tags: [],
+		}));
+
+		rerender(<NoteList {...baseProps} notes={manyNotes} scope="exact" />);
+
+		// 初回バッチは20件まで表示され、25件目はまだ未表示であること
+		expect(screen.getByText("Scroll Note Item 1")).toBeInTheDocument();
+		expect(screen.getByText("Scroll Note Item 20")).toBeInTheDocument();
+		expect(screen.queryByText("Scroll Note Item 25")).not.toBeInTheDocument();
+
+		// Callback Ref により sentinel 出現と同時に observe が呼ばれていること
+		expect(screen.getByTestId("infinite-scroll-sentinel")).toBeInTheDocument();
+		expect(observeSpy).toHaveBeenCalledTimes(1);
+
+		// スクロール交差（isIntersecting: true）を発火
+		act(() => {
+			if (intersectCallback) {
+				intersectCallback(
+					[{ isIntersecting: true } as IntersectionObserverEntry],
+					{} as IntersectionObserver,
+				);
+			}
+		});
+
+		// 残りの21〜25件目が追加描画され、sentinel が消えること
+		expect(screen.getByText("Scroll Note Item 25")).toBeInTheDocument();
+		expect(
+			screen.queryByTestId("infinite-scroll-sentinel"),
+		).not.toBeInTheDocument();
+
+		window.IntersectionObserver = OriginalIntersectionObserver;
+	});
+});

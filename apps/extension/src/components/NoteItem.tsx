@@ -173,18 +173,35 @@ function NoteItem({
 
 	const contentRef = useRef<HTMLDivElement>(null);
 
-	// 💡 原本通りのシンプルで不具合のない高さ測定ロジックへ復元
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Needed to recalculate height on content change
+	// 💡 ResizeObserver による可視化時（アコーディオン開放時等）の自動再測定 ＆ Slim Fetching Hydration 対応
 	useEffect(() => {
 		if (isPreview) return;
 		const el = contentRef.current;
 		if (!el) return;
 
-		// 🚨 重要: display: none (hidden) 時は scrollHeight が 0 になるためガード！
-		// 高さが正しく測定できる（> 0）可視化状態の場合のみ isOverflowing を評価する
-		if (el.scrollHeight > 0) {
-			setIsOverflowing(el.scrollHeight > COLLAPSE_THRESHOLD);
-		}
+		const checkOverflow = () => {
+			if (el.scrollHeight > 0) {
+				// 可視状態（scrollHeight > 0）なら実寸ピクセルで厳密に判定
+				setIsOverflowing(el.scrollHeight > COLLAPSE_THRESHOLD);
+			} else if ((note.content ?? "").length > 120) {
+				// 非表示状態（hidden で scrollHeight === 0）のまま遅延 Hydration で本文が到着した場合、
+				// 初期値 false のまま固着するのを防ぐため文字数しきい値で true へ引き上げる（既に true の場合は維持）
+				setIsOverflowing(true);
+			}
+		};
+
+		checkOverflow();
+
+		if (typeof ResizeObserver === "undefined") return;
+
+		const observer = new ResizeObserver(() => {
+			checkOverflow();
+		});
+		observer.observe(el);
+
+		return () => {
+			observer.disconnect();
+		};
 	}, [note.content, isPreview]);
 
 	const startEditing = () => {

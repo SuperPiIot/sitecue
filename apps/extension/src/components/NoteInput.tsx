@@ -10,7 +10,7 @@ import {
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import TextareaAutosize from "react-textarea-autosize";
-import { useAutoIndent } from "../hooks/useAutoIndent";
+import { useMarkdownAssist } from "../hooks/useMarkdownAssist";
 import type { NoteScope, NoteType } from "../hooks/useNotes";
 
 interface NoteInputProps {
@@ -55,7 +55,8 @@ export default function NoteInput({
 	const pendingNoteRef = useRef("");
 	const pendingDiaryRef = useRef("");
 
-	const handleAutoIndent = useAutoIndent();
+	const { onKeyDown: handleMarkdownKeyDown, onPaste: handleMarkdownPaste } =
+		useMarkdownAssist();
 
 	const maxNoteCharLength =
 		userPlan === "pro"
@@ -313,9 +314,10 @@ export default function NoteInput({
 												handleSubmit(e);
 											}
 										} else {
-											handleAutoIndent(e);
+											handleMarkdownKeyDown(e);
 										}
 									}}
+									onPaste={handleMarkdownPaste}
 								/>
 								{isCharNearLimit && (
 									<div className="absolute right-0 bottom-0 pointer-events-none pb-1">
@@ -403,8 +405,11 @@ export default function NoteInput({
 										if (diaryText.trim()) {
 											handleDiarySubmit();
 										}
+									} else {
+										handleMarkdownKeyDown(e);
 									}
 								}}
+								onPaste={handleMarkdownPaste}
 							/>
 						</div>
 					</div>
