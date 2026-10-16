@@ -127,7 +127,7 @@ export function MiddlePaneHeader({
 	// 一括コピー（表示中の displayItems をそのまま SSOT として対象化）
 	const handleCopyAsText = async () => {
 		const noteItems = displayItems.filter(
-			(item): item is Note => "content" in item,
+			(item): item is Note => "note_type" in item,
 		);
 		const text = noteItems
 			.map((item) => item.content || "")

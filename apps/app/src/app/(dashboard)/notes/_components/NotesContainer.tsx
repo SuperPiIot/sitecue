@@ -248,24 +248,6 @@ export function NotesContainer() {
 		}
 	}, [selectedNote, fetchContentForIds]);
 
-	useEffect(() => {
-		if (!isTabReady || filteredItems.length === 0) return;
-
-		const missingIds = filteredItems
-			.slice(0, 50)
-			.filter(
-				(item): item is Note =>
-					"url_pattern" in item &&
-					item.content === undefined &&
-					item.id !== selectedNote?.id,
-			)
-			.map((item) => item.id);
-
-		if (missingIds.length > 0) {
-			fetchContentForIds(missingIds);
-		}
-	}, [filteredItems, isTabReady, fetchContentForIds, selectedNote?.id]);
-
 	return (
 		<ResponsiveNotesLayout
 			selectedNoteId={params.noteId ?? null}
