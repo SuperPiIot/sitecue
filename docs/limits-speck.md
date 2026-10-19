@@ -23,7 +23,7 @@
 ### Step 1: データベース制約の更新 (マイグレーション)
 1. `supabase/migrations/` 配下に新しいマイグレーションファイルを作成します。
 2. 既存の `CHECK` 制約を削除（`DROP CONSTRAINT`）し、新しい制限値で制約を追加（`ADD CONSTRAINT`）するSQLを記述します。
-3. ローカルDBにマイグレーションを適用し、`bunx supabase db dump --local > schema.sql` を実行してスキーマ情報を最新化します。
+3. ローカルDBにマイグレーションを適用し、`supabase db dump --local > schema.sql` を実行してスキーマ情報を最新化します。
 
 ### Step 2: 定数ファイルの更新
 以下の2つのファイルを開き、`APP_LIMITS` 内の該当する数値を新しい制限値に書き換えます。

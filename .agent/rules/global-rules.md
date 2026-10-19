@@ -15,7 +15,7 @@ sitecueは、Web活動者向けの「コンテキスト認識型メモアプリ�
 - **Database**: Supabase (PostgreSQL)
 
 ## 2. Type Definition Rules (型定義の絶対ルール)
-- **自動生成ファイルの保護**: `packages/shared/src/types/supabase.ts` は `bun x supabase gen types` で自動生成されるファイルである。AIによる直接手動編集は**絶対禁止**。
+- **自動生成ファイルの保護**: `packages/shared/src/types/supabase.ts` は `supabase gen types` で自動生成されるファイルである。AIによる直接手動編集は**絶対禁止**。
 - **型のラップとSSOTの集約**: DBの自動生成型で単なる `string` になる型（例: `sitecue_notes` の `scope`）は、すべて `packages/shared/src/types/app.ts` にて厳密なユニオン型（`'exact' | 'domain' | 'inbox'`）として定義・ラップされている。型定義の情報源はここを唯一の正（SSOT）とする。
 - **リソース制限定数のSSOT集約**: リソース制限（ノート・ドラフト・AI等）は、必ず `@sitecue/shared`（`packages/shared/src/utils/limits.ts`）を参照すること。
 - **コンポーネントからの参照**: UIコンポーネントやHooksから型を `import` する際は、必ず `@sitecue/shared` からインポートすること。

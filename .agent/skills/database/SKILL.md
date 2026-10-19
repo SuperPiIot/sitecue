@@ -19,7 +19,7 @@ description: Supabase、RLS、マイグレーション、およびデータ操�
 - **楽観的UIの採番対称性**: 新規作成時の仮 `sort_order` は、DB側の採番（最上部挿入なら `Math.min(...) - 1.0`）と完全に一致させ、ワープ現象を物理排除すること。
 
 ## 3. マイグレーション ＆ セキュリティ (RLS)
-- **マイグレーション手順**: ローカルで変更テスト後、`supabase/migrations` にSQLを作成し、`bunx supabase db dump --local > supabase/schema.sql` でスキーマを最新化すること。
+- **マイグレーション手順**: ローカルで変更テスト後、`supabase/migrations` にSQLを作成し、`supabase db dump --local > supabase/schema.sql` でスキーマを最新化すること。
 - **RLS (Row Level Security)**: 全テーブルで RLS を有効化し、`auth.uid() = user_id` によるアクセスポリシーを必須とすること。
 - **PostgREST インジェクション対策**: `.or('column.eq."${val}"')` などの文字列連結クエリはパースエラーや脆弱性の原因となるため禁止。複雑な OR 条件は DB 側に RPC を作成してパラメータ渡しすること。
 - **PostgrestError の型判定**: `catch (err: unknown)` 内では `typeof err === 'object' && err !== null && 'message' in err` のプロパティチェックでメッセージを取得すること（`instanceof Error` 単体判定は不可）。
