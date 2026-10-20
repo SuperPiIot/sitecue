@@ -9,6 +9,11 @@ vi.mock("next/navigation", () => ({
 	useSearchParams: vi.fn(),
 }));
 
+// Mock UserMenu to avoid Supabase calls and network requests
+vi.mock("@/app/(dashboard)/_components/UserMenu", () => ({
+	UserMenu: () => <div data-testid="user-menu" />,
+}));
+
 describe("MobileBottomNav", () => {
 	const mockOnSearchOpen = vi.fn();
 
@@ -22,16 +27,19 @@ describe("MobileBottomNav", () => {
 		vi.clearAllMocks();
 	});
 
-	it("通常時はナビゲーションが表示されること", () => {
+	it("通常時はナビゲーションとUserMenuが表示されること", () => {
 		vi.mocked(usePathname).mockReturnValue("/notes");
 		mockSearchParams({});
 
 		render(<MobileBottomNav onSearchOpen={mockOnSearchOpen} />);
 		expect(screen.getByRole("navigation")).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "Notes" })).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: "New Note" }),
 		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
+		expect(screen.getByTestId("user-menu")).toBeInTheDocument();
 	});
 
 	it("詳細ペインが開いている時（noteIdが存在）は表示されないこと", () => {
