@@ -165,14 +165,29 @@ export function MiddlePaneHeader({
 	const isSelected =
 		!!currentView || !!currentDomain || !!currentExact || isSearchActive;
 	const isRouteDomains = currentView === "domains" && !currentDomain;
+	// 🚨 ドメイン直下の個別ページ一覧階層を判定
+	const isPageListLevel = Boolean(
+		currentDomain && currentDomain !== "inbox" && !currentExact,
+	);
+
+	// 検索時を除き、中間ページ一覧階層ではTier2コントロールとアクションボタン群を非表示
 	const showActionGroup =
 		isSelected &&
 		currentView !== "drafts" &&
 		currentView !== "diaries" &&
-		!isRouteDomains;
+		!isRouteDomains &&
+		(!isPageListLevel || isSearchActive);
+
+	const hasTier2Controls =
+		isSelected &&
+		currentView !== "drafts" &&
+		currentView !== "diaries" &&
+		!isRouteDomains &&
+		(!isPageListLevel || isSearchActive);
 
 	const getContextTitle = (): string | null => {
 		if (currentView === "domains" && !currentDomain) return "Domain List";
+		if (isPageListLevel && !isSearchActive) return currentDomain || "Pages";
 		if (currentView === "drafts") return "Draft List";
 		if (currentView === "diaries" && (!currentYear || !currentMonth))
 			return "Diary Archive";
@@ -180,11 +195,6 @@ export function MiddlePaneHeader({
 	};
 
 	const contextTitle = getContextTitle();
-	const hasTier2Controls =
-		isSelected &&
-		currentView !== "drafts" &&
-		currentView !== "diaries" &&
-		!isRouteDomains;
 	const hasBackButton =
 		(currentDomain && currentDomain !== "inbox") ||
 		(currentView === "diaries" && (currentYear || currentMonth));
@@ -414,7 +424,7 @@ export function MiddlePaneHeader({
 			</div>
 
 			{/* 4段目：一括操作バー（Bulk Actions） */}
-			{selectedCount > 0 && (
+			{isSelectMode && (
 				<div className="flex items-center justify-between pt-1 border-t border-base-border border-dashed animate-in fade-in slide-in-from-top-1 duration-200">
 					<span className="text-xs font-semibold text-action">
 						{selectedCount} selected
@@ -424,7 +434,10 @@ export function MiddlePaneHeader({
 							type="button"
 							variant="ghost"
 							size="sm"
-							onClick={onCancelSelection}
+							onClick={() => {
+								onCancelSelection();
+								onSelectModeChange(false);
+							}}
 							disabled={isDeletingBulk}
 							className="text-gray-500 hover:text-action font-medium cursor-pointer rounded-full px-3"
 						>
@@ -435,8 +448,8 @@ export function MiddlePaneHeader({
 							variant="destructive"
 							size="sm"
 							onClick={onDeleteSelected}
-							disabled={isDeletingBulk}
-							className="flex items-center gap-1.5 font-bold cursor-pointer rounded-full px-3"
+							disabled={isDeletingBulk || selectedCount === 0}
+							className="flex items-center gap-1.5 font-bold cursor-pointer rounded-full px-3 disabled:opacity-40"
 						>
 							<Trash2 aria-hidden="true" className="w-3 h-3" />
 							{isDeletingBulk ? "Deleting..." : "Delete"}

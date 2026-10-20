@@ -27,6 +27,21 @@ const extractText = (node: React.ReactNode): string => {
 	return "";
 };
 
+const ensureAbsoluteUrl = (url: string | undefined): string | undefined => {
+	if (!url) return url;
+	if (
+		url.startsWith("http://") ||
+		url.startsWith("https://") ||
+		url.startsWith("mailto:") ||
+		url.startsWith("tel:") ||
+		url.startsWith("/") ||
+		url.startsWith("#")
+	) {
+		return url;
+	}
+	return `https://${url}`;
+};
+
 interface CodeBlockNodeProps {
 	children: React.ReactNode;
 	className?: string;
@@ -90,17 +105,20 @@ export default function MarkdownRenderer({
 				rehypePlugins={[rehypeHighlight]}
 				components={{
 					// Link Styling - Force external new tab
-					a: ({ href, children }) => (
-						<a
-							href={href}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="inline-flex items-center gap-1 text-action font-medium underline underline-offset-4 hover:text-action-hover transition-colors"
-						>
-							{children}
-							<ExternalLink className="w-3 h-3" aria-hidden="true" />
-						</a>
-					),
+					a: ({ href, children }) => {
+						const safeHref = ensureAbsoluteUrl(href);
+						return (
+							<a
+								href={safeHref}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="inline-flex items-center gap-1 text-action font-medium underline underline-offset-4 hover:text-action-hover transition-colors"
+							>
+								{children}
+								<ExternalLink className="w-3 h-3" aria-hidden="true" />
+							</a>
+						);
+					},
 					// Code Styling
 					code(props) {
 						const { children, className, node, ...rest } = props;

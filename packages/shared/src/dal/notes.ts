@@ -145,6 +145,8 @@ export async function updateNoteEntity(
 	if (updates.sort_order !== undefined)
 		updatePayload.sort_order = updates.sort_order;
 
+	updatePayload.updated_at = new Date().toISOString();
+
 	const { data, error } = await supabase
 		.from("sitecue_notes")
 		.update(updatePayload)

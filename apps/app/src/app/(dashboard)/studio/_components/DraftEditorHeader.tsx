@@ -22,6 +22,7 @@ interface DraftEditorHeaderProps {
 	onDeleteDraft: () => void;
 	isOverLimit?: boolean;
 	backHref: string;
+	onBack?: () => void;
 }
 
 export function DraftEditorHeader({
@@ -37,6 +38,7 @@ export function DraftEditorHeader({
 	onDeleteDraft,
 	isOverLimit = false,
 	backHref,
+	onBack,
 }: DraftEditorHeaderProps) {
 	return (
 		<header
@@ -46,13 +48,24 @@ export function DraftEditorHeader({
 			)}
 		>
 			<div className="flex items-center gap-4">
-				<CustomLink
-					href={backHref}
-					className="text-neutral-500 hover:text-neutral-900 -ml-2 gap-1.5 cursor-pointer inline-flex items-center text-sm font-medium"
-				>
-					<ArrowLeft className="w-4 h-4" aria-hidden="true" />
-					{hasDraftId ? "Back" : "Cancel"}
-				</CustomLink>
+				{onBack ? (
+					<button
+						type="button"
+						onClick={onBack}
+						className="text-neutral-500 hover:text-neutral-900 -ml-2 gap-1.5 cursor-pointer inline-flex items-center text-sm font-medium"
+					>
+						<ArrowLeft aria-hidden="true" className="w-4 h-4" />
+						{hasDraftId ? "Back" : "Cancel"}
+					</button>
+				) : (
+					<CustomLink
+						href={backHref}
+						className="text-neutral-500 hover:text-neutral-900 -ml-2 gap-1.5 cursor-pointer inline-flex items-center text-sm font-medium"
+					>
+						<ArrowLeft className="w-4 h-4" aria-hidden="true" />
+						{hasDraftId ? "Back" : "Cancel"}
+					</CustomLink>
+				)}
 			</div>
 
 			<div className="flex items-center gap-4">

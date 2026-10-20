@@ -62,6 +62,7 @@ interface MiddlePaneContentProps {
 	isLoading?: boolean;
 	visibleCount: number;
 	onLoadMore: () => void;
+	bulkExitingIds?: Set<string>;
 }
 
 export function MiddlePaneContent({
@@ -89,6 +90,7 @@ export function MiddlePaneContent({
 	isLoading = false,
 	visibleCount,
 	onLoadMore,
+	bulkExitingIds,
 }: MiddlePaneContentProps) {
 	const searchParams = useSearchParams();
 	const diaries = items.filter(
@@ -483,6 +485,7 @@ export function MiddlePaneContent({
 										selectable={false}
 										onTodoToggle={onTodoToggle}
 										onPinToggle={onPinToggle}
+										isBulkExiting={bulkExitingIds?.has(item.id)}
 									/>
 								))
 							) : (
@@ -511,6 +514,7 @@ export function MiddlePaneContent({
 												onSelectChange={onSelectChange}
 												onTodoToggle={onTodoToggle}
 												onPinToggle={onPinToggle}
+												isBulkExiting={bulkExitingIds?.has(item.id)}
 											/>
 										))}
 									</SortableContext>

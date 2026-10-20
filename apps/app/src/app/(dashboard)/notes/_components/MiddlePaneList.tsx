@@ -73,6 +73,7 @@ export function MiddlePaneList(props: Props) {
 
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+	const [bulkExitingIds, setBulkExitingIds] = useState<Set<string>>(new Set());
 	const [isSelectMode, setIsSelectMode] = useState(false);
 	const [showResolved, setShowResolved] = useState(false);
 	const [filterType, setFilterType] = useState<FilterType>("all");
@@ -215,10 +216,17 @@ export function MiddlePaneList(props: Props) {
 	}, []);
 
 	const handleDeleteSelected = useCallback(async () => {
-		if (selectedIds.size === 0) return;
+		if (selectedIds.size === 0 || isDeletingBulk) return;
 		const idsToDelete = Array.from(selectedIds);
 		setIsDeletingBulk(true);
 
+		// 1. 退場アニメーションを発火
+		setBulkExitingIds(new Set(idsToDelete));
+
+		// 2. 350ms アニメーション待機
+		await new Promise((resolve) => setTimeout(resolve, 350));
+
+		// 3. ローカルステートから除外
 		setLocalItems((prev) =>
 			prev.filter((item) => {
 				if ("id" in item) return !selectedIds.has(item.id);
@@ -226,6 +234,7 @@ export function MiddlePaneList(props: Props) {
 			}),
 		);
 		setSelectedIds(new Set());
+		setBulkExitingIds(new Set());
 		setIsSelectMode(false);
 
 		try {
@@ -237,7 +246,7 @@ export function MiddlePaneList(props: Props) {
 		} finally {
 			setIsDeletingBulk(false);
 		}
-	}, [selectedIds, deleteNotesAsync, items]);
+	}, [selectedIds, isDeletingBulk, deleteNotesAsync, items]);
 
 	const handleDragEnd = useCallback(
 		async (event: DragEndEvent) => {
@@ -462,6 +471,7 @@ export function MiddlePaneList(props: Props) {
 				isLoading={isLoading}
 				visibleCount={visibleCount}
 				onLoadMore={handleLoadMore}
+				bulkExitingIds={bulkExitingIds}
 			/>
 		</div>
 	);
