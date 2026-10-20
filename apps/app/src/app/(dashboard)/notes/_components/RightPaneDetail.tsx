@@ -88,6 +88,8 @@ export function RightPaneDetail({
 	const diary = diaries.find((d) => d.date === selectedDate);
 	const [isEditing, setIsEditing] = useState(false);
 	const editorContainerRef = useRef<HTMLDivElement>(null);
+	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const savedScrollTopRef = useRef<number>(0);
 
 	const [editContent, setEditContent] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
@@ -343,13 +345,15 @@ export function RightPaneDetail({
 			: note?.is_favorite || false;
 
 	const handleEdit = () => {
+		if (scrollContainerRef.current) {
+			savedScrollTopRef.current = scrollContainerRef.current.scrollTop;
+		}
 		setEditContent(note?.content || "");
 		setIsEditing(true);
 		requestAnimationFrame(() => {
-			editorContainerRef.current?.scrollIntoView({
-				behavior: "smooth",
-				block: "nearest",
-			});
+			if (scrollContainerRef.current) {
+				scrollContainerRef.current.scrollTop = savedScrollTopRef.current;
+			}
 		});
 	};
 
@@ -748,7 +752,7 @@ export function RightPaneDetail({
 			</div>
 
 			{/* 2. Content Area (Scrollable) */}
-			<div className="flex-1 overflow-y-auto">
+			<div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
 				<div className="px-4 py-8 md:px-12 mx-auto w-full">
 					{!note && draft?.title && (
 						<div className="mb-8 flex flex-col gap-2">

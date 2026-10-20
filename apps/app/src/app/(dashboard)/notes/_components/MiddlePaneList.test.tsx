@@ -1163,8 +1163,10 @@ describe("MiddlePaneList Bulk Delete Optimistic UI", () => {
 		const deleteBtn = screen.getByRole("button", { name: /delete/i });
 		await user.click(deleteBtn);
 
-		// Note 1 should immediately disappear from UI (optimistic UI)
-		expect(screen.queryByText("Note 1")).not.toBeInTheDocument();
+		// Note 1 should disappear from UI after animation
+		await waitFor(() => {
+			expect(screen.queryByText("Note 1")).not.toBeInTheDocument();
+		});
 		expect(screen.getByText("Note 2")).toBeInTheDocument();
 		expect(deleteNotesMock).toHaveBeenCalledWith(["note-1"]);
 	});

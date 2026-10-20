@@ -8,6 +8,7 @@ import {
 	fetchNoteMetadatas,
 	getMatchingNoteCount,
 	searchNotesAndDrafts,
+	updateNoteEntity,
 } from "./notes";
 
 // biome-ignore lint/suspicious/noExplicitAny: モック構築用
@@ -90,6 +91,31 @@ describe("Shared DAL: notes", () => {
 		);
 
 		expect(count).toBe(0);
+	});
+
+	it("updateNoteEntityがupdated_atをペイロードに含めて更新すること", async () => {
+		const mockSingle = vi.fn().mockResolvedValue({
+			data: {
+				id: "note-1",
+				content: "updated",
+				updated_at: "2026-10-20T00:00:00Z",
+			},
+			error: null,
+		});
+		const mockSelect = vi.fn().mockReturnValue({ single: mockSingle });
+		const mockEq = vi.fn().mockReturnValue({ select: mockSelect });
+		const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq });
+		const mockFrom = vi.fn().mockReturnValue({ update: mockUpdate });
+		const supabase: AnyClient = { from: mockFrom };
+
+		await updateNoteEntity(supabase, "note-1", { content: "updated" });
+
+		expect(mockUpdate).toHaveBeenCalledWith(
+			expect.objectContaining({
+				content: "updated",
+				updated_at: expect.any(String),
+			}),
+		);
 	});
 });
 

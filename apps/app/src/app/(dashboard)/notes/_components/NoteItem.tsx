@@ -34,6 +34,7 @@ interface NoteItemProps {
 	onSelectChange?: (id: string, checked: boolean) => void;
 	onTodoToggle?: (e: React.MouseEvent, id: string, resolved: boolean) => void;
 	onPinToggle?: (e: React.MouseEvent, id: string, pinned: boolean) => void;
+	isBulkExiting?: boolean;
 }
 
 function NoteItemComponent({
@@ -49,6 +50,7 @@ function NoteItemComponent({
 	onSelectChange,
 	onTodoToggle,
 	onPinToggle,
+	isBulkExiting = false,
 }: NoteItemProps) {
 	const [isExiting, setIsExiting] = useState(false);
 	const exitTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -94,8 +96,8 @@ function NoteItemComponent({
 					<div className="flex justify-between items-start mb-1">
 						<h3 className="text-sm font-bold text-action">{dayLabel}</h3>
 					</div>
-					<p className="text-sm text-action line-clamp-1 break-words mb-2">
-						{diary.content.replace(/\[\d{2}:\d{2}\]\n/g, "").split("\n")[0]}
+					<p className="text-sm text-action line-clamp-2 break-words mb-2">
+						{diary.content.replace(/\[\d{2}:\d{2}\]\n/g, "").trim()}
 					</p>
 					{diary.topics && diary.topics.length > 0 && (
 						<div className="flex flex-wrap gap-1">
@@ -148,10 +150,11 @@ function NoteItemComponent({
 		<div
 			data-testid="note-item"
 			className={cn(
-				"group/card relative flex items-stretch transition-all duration-400 ease-in-out",
+				"group/card relative flex items-stretch transition-all duration-300 ease-in-out",
 				isActive ? "bg-base-surface" : "hover-safe:bg-base-surface/50",
-				(isResolved || isExiting) && "opacity-50",
-				isExiting && "line-through pointer-events-none",
+				(isResolved || isExiting || isBulkExiting) && "opacity-50",
+				(isExiting || isBulkExiting) &&
+					"scale-95 pointer-events-none opacity-0",
 			)}
 		>
 			<Link
@@ -274,6 +277,7 @@ interface SortableNoteItemProps {
 	onSelectChange?: (id: string, checked: boolean) => void;
 	onTodoToggle?: (e: React.MouseEvent, id: string, resolved: boolean) => void;
 	onPinToggle?: (e: React.MouseEvent, id: string, pinned: boolean) => void;
+	isBulkExiting?: boolean;
 }
 
 function SortableNoteItemComponent({
@@ -289,6 +293,7 @@ function SortableNoteItemComponent({
 	onSelectChange,
 	onTodoToggle,
 	onPinToggle,
+	isBulkExiting,
 }: SortableNoteItemProps) {
 	const isSortDisabled =
 		currentView === "drafts" || currentExact === "all" || isSearchActive;
@@ -328,6 +333,7 @@ function SortableNoteItemComponent({
 				onSelectChange={onSelectChange}
 				onTodoToggle={onTodoToggle}
 				onPinToggle={onPinToggle}
+				isBulkExiting={isBulkExiting}
 			/>
 		</div>
 	);

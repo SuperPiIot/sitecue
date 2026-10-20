@@ -55,4 +55,10 @@ describe("MarkdownRenderer", () => {
 		expect(container).toHaveClass("opacity-100");
 		expect(container).toHaveClass("group-hover-safe:opacity-100");
 	});
+
+	it("プロトコルが省略された外部リンクにhttps://が補完されること", () => {
+		render(<MarkdownRenderer content="Check [Google](google.com)" />);
+		const link = screen.getByRole("link", { name: /Google/i });
+		expect(link).toHaveAttribute("href", "https://google.com");
+	});
 });

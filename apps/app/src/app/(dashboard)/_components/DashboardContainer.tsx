@@ -227,11 +227,17 @@ function WeeklyProgressContent({ data }: { data: DashboardActivityData }) {
 								</div>
 								<span
 									className={`truncate font-sans ${item.isResolved ? "line-through opacity-50" : ""}`}
-									title={item.content || item.title}
+									title={
+										item.type === "draft"
+											? item.title || "Untitled Draft"
+											: item.content || item.title
+									}
 								>
-									{item.content
-										? item.content.replace(/[#*`-]/g, "")
-										: item.title}
+									{item.type === "draft"
+										? item.title || "Untitled Draft"
+										: item.content
+											? item.content.replace(/[#*`-]/g, "")
+											: item.title}
 								</span>
 							</Link>
 						))}

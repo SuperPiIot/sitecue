@@ -182,6 +182,21 @@ export default function DraftEditor({
 		slug !== savedState.slug ||
 		hasUnsavedNotesChanges;
 
+	const handleBack = () => {
+		if (isDirty) {
+			const confirmLeave = window.confirm(
+				"You have unsaved changes. Are you sure you want to leave?",
+			);
+			if (!confirmLeave) return;
+		}
+
+		if (typeof window !== "undefined" && window.history.length > 1) {
+			router.back();
+		} else {
+			router.push("/notes?view=drafts");
+		}
+	};
+
 	const handleDeleteDraft = async () => {
 		if (!targetDraftId) return;
 		if (!window.confirm("Are you sure you want to delete this draft?")) return;
@@ -598,6 +613,7 @@ export default function DraftEditor({
 							onDeleteDraft={handleDeleteDraft}
 							isOverLimit={isOverLimit}
 							backHref="/notes?view=drafts"
+							onBack={handleBack}
 						/>
 
 						<div className="flex-1 overflow-y-auto px-4 py-8 md:px-8 md:py-10">
@@ -799,6 +815,7 @@ export default function DraftEditor({
 							onDeleteDraft={handleDeleteDraft}
 							isOverLimit={isOverLimit}
 							backHref="/notes?view=drafts"
+							onBack={handleBack}
 						/>
 
 						<div className="flex-1 overflow-y-auto px-4 py-8 md:px-8 md:py-10">
