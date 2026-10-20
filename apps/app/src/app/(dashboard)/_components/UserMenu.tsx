@@ -18,7 +18,17 @@ import { cn } from "@/lib/utils";
 import { useUserStore } from "@/store/useUserStore";
 import { createClient } from "@/utils/supabase/client";
 
-export function UserMenu() {
+export interface UserMenuProps {
+	side?: "top" | "right" | "bottom" | "left";
+	align?: "start" | "center" | "end";
+	sideOffset?: number;
+}
+
+export function UserMenu({
+	side = "right",
+	align = "end",
+	sideOffset = 16,
+}: UserMenuProps = {}) {
 	const router = useRouter();
 	const supabase = createClient();
 	const [user, setUser] = useState<SupabaseUser | null>(null);
@@ -81,9 +91,9 @@ export function UserMenu() {
 			/>
 
 			<PopoverContent
-				side="right"
-				align="end"
-				sideOffset={16}
+				side={side}
+				align={align}
+				sideOffset={sideOffset}
 				className="w-64 p-2 z-[100]"
 			>
 				<div className="px-3 py-2 mb-1 border-b border-base-border/50">

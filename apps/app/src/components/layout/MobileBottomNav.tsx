@@ -4,12 +4,11 @@ import { Home, Library, Search } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { UserMenu } from "@/app/(dashboard)/_components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { CustomLink as Link } from "@/components/ui/custom-link";
-import { cn } from "@/lib/utils"; // 👈 💡 この1行を手打ちで追加してください！
+import { cn } from "@/lib/utils";
 import { useLayoutStore } from "@/store/useLayoutStore";
-
-// --- 以下、既存のコードのまま ---
 
 interface MobileBottomNavProps {
 	onSearchOpen: () => void;
@@ -34,11 +33,10 @@ function MobileBottomNavInner({ onSearchOpen }: MobileBottomNavProps) {
 
 	return (
 		<nav className="md:hidden shrink-0 w-auto mx-4 mb-4 pb-safe z-40 bg-action rounded-full shadow-lg overflow-visible border border-white/5">
-			{/* Flexベースの完全シンメトリー構造（中央スペースの最大拡張） */}
+			{/* Flexベースの完全シンメトリー構造 */}
 			<div className="flex justify-between items-center h-16 px-4">
-				{/* 左端エリア：ホームボタン（w-12固定、ボタン物理判定を size-10 / 40px に微拡大してヒット領域を確保） */}
+				{/* 左端エリア：ホームボタン */}
 				<div className="w-12 flex justify-start items-center">
-					{/* 💡 共通Linkのghost駆動へリプレイス。ネイビー背景に合わせてホバー色をホワイト半透明に最適化 */}
 					<Link
 						href="/"
 						variant="ghost"
@@ -46,15 +44,13 @@ function MobileBottomNavInner({ onSearchOpen }: MobileBottomNavProps) {
 						className="size-10 text-white/60 hover-safe:text-white hover-safe:bg-white/10 transition-all active:scale-95"
 						aria-label="Home"
 					>
-						{/* 💡 安全令を回避するため size-[18px] を指定 */}
 						<Home className="size-[18px]" aria-hidden="true" />
 					</Link>
 				</div>
 
-				{/* 中央エリア：メインアクション（新規作成、検索、一覧）を大ぶりの白いカプセル島として独立化 */}
+				{/* 中央エリア：メインアクション（Notes, New Note, Search） */}
 				<div className="flex-1 flex justify-center items-center">
 					<div className="w-48 h-13 bg-base-surface rounded-full flex items-center justify-between p-0.5 shrink-0 shadow-sm">
-						{/* 1. Notes 一覧（アクティブ時は自動で沈み込み、非アクティブ時は綺麗に馴染みます） */}
 						<Link
 							href="/notes"
 							variant={isNotes ? "secondary" : "ghost"}
@@ -67,11 +63,9 @@ function MobileBottomNavInner({ onSearchOpen }: MobileBottomNavProps) {
 							)}
 							aria-label="Notes"
 						>
-							{/* 💡 強制縮小を回避するため size-6 を明示 */}
 							<Library className="size-6" aria-hidden="true" />
 						</Link>
 
-						{/* 2. Logo（新規作成：共通Buttonへ統合し、border-none p-0.5 で完全な質量を死守） */}
 						<Button
 							type="button"
 							variant="ghost"
@@ -91,7 +85,6 @@ function MobileBottomNavInner({ onSearchOpen }: MobileBottomNavProps) {
 							/>
 						</Button>
 
-						{/* 3. 検索（生のbuttonから共通Buttonコンポーネントへ整流化） */}
 						<Button
 							type="button"
 							variant="ghost"
@@ -100,17 +93,17 @@ function MobileBottomNavInner({ onSearchOpen }: MobileBottomNavProps) {
 							className="size-12 text-gray-500 hover-safe:text-action hover-safe:bg-base-bg transition-colors"
 							aria-label="Search"
 						>
-							{/* 💡 強制縮小を回避するため size-6 を明示 */}
 							<Search className="size-6" aria-hidden="true" />
 						</Button>
 					</div>
 				</div>
 
-				{/* 右端エリア：等幅のリズム（シンメトリー）を崩さないための固定プレースホルダー（w-12固定） */}
-				<div
-					className="w-12 flex justify-end bg-transparent pointer-events-none"
-					aria-hidden="true"
-				/>
+				{/* 右端エリア：UserMenu（w-12固定でシンメトリーを維持） */}
+				<div className="w-12 flex justify-end items-center">
+					<Suspense fallback={null}>
+						<UserMenu side="top" align="end" sideOffset={12} />
+					</Suspense>
+				</div>
 			</div>
 		</nav>
 	);
