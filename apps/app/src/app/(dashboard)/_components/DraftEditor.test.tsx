@@ -1,6 +1,6 @@
 import type { Draft } from "@sitecue/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { Toaster } from "react-hot-toast";
@@ -154,8 +154,21 @@ describe("DraftEditor - Error Handling & Architecture", () => {
 		);
 
 		expect(screen.getAllByDisplayValue("Test Title")[0]).toBeInTheDocument();
-		expect(screen.getAllByText("SELF REVIEW")[0]).toBeInTheDocument();
-		expect(screen.getAllByText("GLOBAL MATERIALS")[0]).toBeInTheDocument();
+		expect(screen.getAllByText("OUTLINE")[0]).toBeInTheDocument();
+		expect(screen.getAllByText("REVIEW")[0]).toBeInTheDocument();
+		expect(screen.getAllByText("MATERIALS")[0]).toBeInTheDocument();
+	});
+
+	it("未編集の初期状態では Save ボタンが disabled であること", async () => {
+		const queryClient = createTestQueryClient();
+		render(
+			<QueryClientProvider client={queryClient}>
+				<DraftEditor initialDraft={mockDraft} />
+			</QueryClientProvider>,
+		);
+
+		const saveButton = screen.getAllByRole("button", { name: /^Save$/i })[0];
+		expect(saveButton).toBeDisabled();
 	});
 
 	it("新規保存時に router.refresh() を呼ばずに setQueriesData で0ms注入後に router.replace を直列実行すること", async () => {
@@ -169,9 +182,10 @@ describe("DraftEditor - Error Handling & Architecture", () => {
 		);
 
 		const titleInput = screen.getAllByPlaceholderText("Title (optional)")[0];
-		await user.type(titleInput, "New Title");
+		fireEvent.change(titleInput, { target: { value: "New Title" } });
 
 		const saveButton = screen.getAllByRole("button", { name: /^Save$/i })[0];
+		expect(saveButton).not.toBeDisabled();
 		await user.click(saveButton);
 
 		await waitFor(() => {
@@ -183,26 +197,21 @@ describe("DraftEditor - Error Handling & Architecture", () => {
 		});
 	});
 
-	it("タブ切替（SELF REVIEW ⇔ GLOBAL MATERIALS）が即座にトグル可能であること", async () => {
+	it("タブ切替（OUTLINE / REVIEW / MATERIALS）が正しく動作すること", async () => {
 		const queryClient = createTestQueryClient();
 		const user = userEvent.setup();
 		render(
 			<QueryClientProvider client={queryClient}>
-				<DraftEditor />
+				<DraftEditor initialDraft={mockDraft} />
 			</QueryClientProvider>,
 		);
 
-		const reviewTab = screen.getAllByRole("button", { name: "SELF REVIEW" })[0];
-		const materialsTab = screen.getAllByRole("button", {
-			name: "GLOBAL MATERIALS",
-		})[0];
+		const outlineTab = screen.getAllByRole("button", { name: "OUTLINE" })[0];
+		expect(outlineTab).toBeInTheDocument();
 
-		expect(reviewTab).toBeInTheDocument();
-		expect(materialsTab).toBeInTheDocument();
-
-		await user.click(materialsTab);
+		await user.click(outlineTab);
 		expect(
-			screen.getAllByPlaceholderText(/search.*materials/i)[0],
+			screen.getAllByPlaceholderText(/filter headings/i)[0],
 		).toBeInTheDocument();
 	});
 });

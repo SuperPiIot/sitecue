@@ -4,6 +4,7 @@ import { type Diary, SHARED_LIMITS } from "@sitecue/shared";
 import {
 	ArrowLeft,
 	CalendarDays,
+	Check,
 	ChevronLeft,
 	ChevronRight,
 	X,
@@ -221,17 +222,25 @@ export function DiaryStudioClient({ initialDiary, date }: Props) {
 							</div>
 							<div className="flex items-center gap-2">
 								<Button
-									className="shadow-sm font-bold min-w-[80px] cursor-pointer"
+									className="w-24 rounded-full shadow-sm font-bold cursor-pointer"
 									disabled={status === "saving" || !isDirty || isOverLimit}
 									onClick={handleSave}
 									size="sm"
 									variant="default"
 								>
-									{status === "saving"
-										? "Saving..."
-										: status === "success"
-											? "Saved"
-											: "Save Diary"}
+									{status === "saving" ? (
+										"Saving..."
+									) : status === "success" ? (
+										<span className="flex items-center gap-1">
+											<Check
+												aria-hidden="true"
+												className="w-4 h-4 text-note-info"
+											/>
+											Saved
+										</span>
+									) : (
+										"Save"
+									)}
 								</Button>
 							</div>
 						</header>
@@ -393,14 +402,7 @@ export function DiaryStudioClient({ initialDiary, date }: Props) {
 				)}
 			>
 				<div className="flex-grow w-full h-full flex relative overflow-hidden bg-base-bg text-action">
-					<div
-						className={cn(
-							"h-full flex flex-col transition-all duration-300 ease-in-out overflow-hidden min-w-0 bg-base-bg",
-							isTabletPortrait && isPanelOpen
-								? "w-1/2 border-r border-base-border"
-								: "w-full",
-						)}
-					>
+					<div className="h-full w-full flex flex-col overflow-hidden min-w-0 bg-base-bg">
 						<header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-base-border bg-base-surface/50 h-14">
 							<div className="flex items-center gap-3">
 								<CustomLink
@@ -420,17 +422,25 @@ export function DiaryStudioClient({ initialDiary, date }: Props) {
 							</div>
 							<div className="flex items-center gap-2">
 								<Button
-									className="shadow-sm font-bold min-w-[80px] cursor-pointer"
+									className="w-24 rounded-full shadow-sm font-bold cursor-pointer"
 									disabled={status === "saving" || !isDirty || isOverLimit}
 									onClick={handleSave}
 									size="sm"
 									variant="default"
 								>
-									{status === "saving"
-										? "Saving..."
-										: status === "success"
-											? "Saved"
-											: "Save Diary"}
+									{status === "saving" ? (
+										"Saving..."
+									) : status === "success" ? (
+										<span className="flex items-center gap-1">
+											<Check
+												aria-hidden="true"
+												className="w-4 h-4 text-note-info"
+											/>
+											Saved
+										</span>
+									) : (
+										"Save"
+									)}
 								</Button>
 							</div>
 						</header>
@@ -579,7 +589,7 @@ export function DiaryStudioClient({ initialDiary, date }: Props) {
 							<button
 								type="button"
 								onClick={togglePanel}
-								className="fixed right-[50%] -mr-5 top-1/2 -translate-y-1/2 z-40 size-10 rounded-full bg-base-surface border border-base-border shadow-md text-neutral-400 hover:text-action transition-all flex items-center justify-center select-none cursor-pointer active:bg-action active:text-action-text active:border-action"
+								className="fixed right-[380px] md:right-[400px] -mr-5 top-1/2 -translate-y-1/2 z-40 size-10 rounded-full bg-base-surface border border-base-border shadow-md text-neutral-400 hover:text-action transition-all flex items-center justify-center select-none cursor-pointer active:bg-action active:text-action-text active:border-action"
 								title="Close right panel"
 							>
 								<ChevronRight className="w-5 h-5 shrink-0" aria-hidden="true" />
@@ -603,12 +613,14 @@ export function DiaryStudioClient({ initialDiary, date }: Props) {
 							</button>
 						))}
 
-					{/* 右側パネル: iPad縦持ちで開いている場合のみ幅50% */}
+					{/* 右側パネル: iPad縦持ちで開いている場合のフロートパネル */}
 					{isTabletPortrait && (
 						<div
 							className={cn(
-								"h-full bg-base-surface transition-all duration-300 ease-in-out flex flex-col overflow-hidden shrink-0",
-								isPanelOpen ? "w-1/2" : "w-0 opacity-0 pointer-events-none",
+								"absolute right-0 top-0 bottom-0 z-30 w-[380px] md:w-[400px] bg-base-surface border-l border-base-border shadow-2xl transition-transform duration-300 ease-in-out flex flex-col overflow-hidden",
+								isPanelOpen
+									? "translate-x-0"
+									: "translate-x-full pointer-events-none",
 							)}
 						>
 							<div className="flex-1 overflow-hidden">

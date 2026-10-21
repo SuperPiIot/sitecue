@@ -1,3 +1,8 @@
+---
+trigger: always_on
+description: App Basecamp（Next.js App Router）のルーティング、Suspense境界、0msシェル、およびレイアウト設計の専門ルール
+---
+
 # App Basecamp（Next.js）Routing & Layout Rules
 
 ※最優先遵守事項（0ms UIシェル常時露出、二重Suspense配置規約等）については必ず `.agent/rules/core-rules.md` を参照すること。

@@ -26,6 +26,10 @@ interface StudioEditorProps extends EditorProps {
 	) => Promise<string | null>;
 }
 
+export interface StudioEditorHandle {
+	scrollToPos: (pos: number) => void;
+}
+
 // --- CM6 Hint Extension ---
 const setHintEffect = StateEffect.define<{
 	pos: number;
@@ -79,14 +83,32 @@ const studioScrollPaddingTheme = EditorView.theme({
 	},
 });
 
-export const StudioEditor = ({
-	value,
-	onChange,
-	placeholder,
-	isDirty = false,
-	onGenerateHint,
-}: StudioEditorProps) => {
+export const StudioEditor = React.forwardRef<
+	StudioEditorHandle,
+	StudioEditorProps
+>(({ value, onChange, placeholder, isDirty = false, onGenerateHint }, ref) => {
 	useUnsavedChanges(isDirty);
+
+	const editorViewRef = useRef<EditorView | null>(null);
+
+	React.useImperativeHandle(
+		ref,
+		() => ({
+			scrollToPos: (pos: number) => {
+				const view = editorViewRef.current;
+				if (!view) return;
+				view.dispatch({
+					selection: { anchor: pos },
+					effects: EditorView.scrollIntoView(pos, {
+						y: "start",
+						yMargin: 80,
+					}),
+				});
+				view.focus();
+			},
+		}),
+		[],
+	);
 
 	const onGenerateHintRef = useRef(onGenerateHint);
 	useEffect(() => {
@@ -172,6 +194,9 @@ export const StudioEditor = ({
 	return (
 		<div className="w-full rounded-xl bg-base-surface/50 focus-within:bg-base-bg focus-within:shadow-sm border border-transparent focus-within:border-base-border transition-all duration-200 p-2 md:p-6">
 			<CodeMirror
+				onCreateEditor={(view) => {
+					editorViewRef.current = view;
+				}}
 				value={value}
 				onChange={onChange}
 				extensions={extensions}
@@ -182,4 +207,6 @@ export const StudioEditor = ({
 			/>
 		</div>
 	);
-};
+});
+
+StudioEditor.displayName = "StudioEditor";

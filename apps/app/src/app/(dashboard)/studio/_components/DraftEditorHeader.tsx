@@ -21,6 +21,7 @@ interface DraftEditorHeaderProps {
 	onSaveAsTemplate: () => void;
 	onDeleteDraft: () => void;
 	isOverLimit?: boolean;
+	isDirty?: boolean;
 	backHref: string;
 	onBack?: () => void;
 }
@@ -37,6 +38,7 @@ export function DraftEditorHeader({
 	onSaveAsTemplate,
 	onDeleteDraft,
 	isOverLimit = false,
+	isDirty = false,
 	backHref,
 	onBack,
 }: DraftEditorHeaderProps) {
@@ -78,7 +80,12 @@ export function DraftEditorHeader({
 
 				<Button
 					onClick={onSave}
-					disabled={status === "saving" || status === "success" || isOverLimit}
+					disabled={
+						status === "saving" ||
+						status === "success" ||
+						isOverLimit ||
+						!isDirty
+					}
 					size="sm"
 					className="w-24 rounded-full"
 					type="button"
