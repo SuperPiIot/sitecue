@@ -4,7 +4,7 @@ import type { Draft, Note, Template } from "@sitecue/shared";
 import { APP_LIMITS, extractTags } from "@sitecue/shared";
 import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import {
 	Panel,
@@ -12,7 +12,10 @@ import {
 	Separator as PanelResizeHandle,
 } from "react-resizable-panels";
 import TextareaAutosize from "react-textarea-autosize";
-import { StudioEditor } from "@/components/editor/StudioEditor";
+import {
+	StudioEditor,
+	type StudioEditorHandle,
+} from "@/components/editor/StudioEditor";
 import { Button } from "@/components/ui/button";
 import {
 	Drawer,
@@ -42,6 +45,9 @@ import { useUserStore } from "@/store/useUserStore";
 import { createClient } from "@/utils/supabase/client";
 import { DraftEditorHeader } from "../studio/_components/DraftEditorHeader";
 import StudioMaterialsPane from "../studio/_components/StudioMaterialsPane";
+import StudioOutlinePane, {
+	type HeadingItem,
+} from "../studio/_components/StudioOutlinePane";
 import StudioReviewPane from "../studio/_components/StudioReviewPane";
 import { StudioEditorSkeleton } from "../studio/_components/StudioSkeletons";
 import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
@@ -83,12 +89,23 @@ export default function DraftEditor({
 	const isSidebarOpen = useLayoutStore((state) => state.isSidebarOpen);
 	const router = useRouter();
 	const supabase = createClient();
-	const initialPane =
-		searchParams.get("tab") === "materials" ? "materials" : "review";
-	const [activePane, setActivePane] = useState<"review" | "materials">(
-		initialPane,
-	);
+	const editorRef = useRef<StudioEditorHandle>(null);
+	const mobileEditorRef = useRef<StudioEditorHandle>(null);
+
+	const initialTab = searchParams.get("tab");
+	const initialPane: "outline" | "review" | "materials" =
+		initialTab === "outline" || initialTab === "materials"
+			? initialTab
+			: "review";
+	const [activePane, setActivePane] = useState<
+		"outline" | "review" | "materials"
+	>(initialPane);
 	const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+	const handleSelectHeading = (item: HeadingItem) => {
+		editorRef.current?.scrollToPos(item.pos);
+		mobileEditorRef.current?.scrollToPos(item.pos);
+	};
 
 	const togglePanel = () => {
 		setIsPanelOpen(!isPanelOpen);
@@ -561,7 +578,7 @@ export default function DraftEditor({
 		}
 	};
 
-	const updatePane = (pane: "review" | "materials") => {
+	const updatePane = (pane: "outline" | "review" | "materials") => {
 		setActivePane(pane);
 		setIsPanelOpen(true);
 		// Passive URL sync without trigger router re-render
@@ -612,6 +629,7 @@ export default function DraftEditor({
 							onSaveAsTemplate={() => setIsSaveTemplateDialogOpen(true)}
 							onDeleteDraft={handleDeleteDraft}
 							isOverLimit={isOverLimit}
+							isDirty={isDirty}
 							backHref="/notes?view=drafts"
 							onBack={handleBack}
 						/>
@@ -678,6 +696,7 @@ export default function DraftEditor({
 										>
 											{() => (
 												<StudioEditor
+													ref={editorRef}
 													value={content}
 													onChange={(val) => setContent(val)}
 													placeholder="Write down your thoughts..."
@@ -721,6 +740,18 @@ export default function DraftEditor({
 							<div className="flex rounded-full bg-base-surface p-1">
 								<button
 									type="button"
+									onClick={() => updatePane("outline")}
+									className={cn(
+										"flex-1 rounded-full py-1.5 text-xs font-bold transition-all cursor-pointer",
+										activePane === "outline"
+											? "bg-action text-action-text shadow-sm"
+											: "text-neutral-500 hover-safe:text-action",
+									)}
+								>
+									OUTLINE
+								</button>
+								<button
+									type="button"
 									onClick={() => updatePane("review")}
 									className={cn(
 										"flex-1 rounded-full py-1.5 text-xs font-bold transition-all cursor-pointer",
@@ -729,7 +760,7 @@ export default function DraftEditor({
 											: "text-neutral-500 hover-safe:text-action",
 									)}
 								>
-									SELF REVIEW
+									REVIEW
 								</button>
 								<button
 									type="button"
@@ -741,14 +772,19 @@ export default function DraftEditor({
 											: "text-neutral-500 hover-safe:text-action",
 									)}
 								>
-									GLOBAL MATERIALS
+									MATERIALS
 								</button>
 							</div>
 						</header>
 
 						{/* Tab Content */}
 						<div className="flex-1 overflow-hidden">
-							{activePane === "review" ? (
+							{activePane === "outline" ? (
+								<StudioOutlinePane
+									content={content}
+									onSelectHeading={handleSelectHeading}
+								/>
+							) : activePane === "review" ? (
 								<StudioReviewPane
 									reviewNotes={reviewNotes}
 									isLoadingReview={isLoadingReview}
@@ -775,12 +811,6 @@ export default function DraftEditor({
 								/>
 							)}
 						</div>
-
-						<div className="border-t border-base-border p-4 text-center bg-base-bg/50">
-							<p className="text-[10px] text-neutral-400 font-medium">
-								Weave Studio Power User Mode
-							</p>
-						</div>
 					</Panel>
 				</PanelGroup>
 			</div>
@@ -794,14 +824,7 @@ export default function DraftEditor({
 			>
 				<div className="flex-grow w-full h-full flex relative overflow-hidden bg-base-bg text-action">
 					{/* 左ペイン: メインエディタ */}
-					<div
-						className={cn(
-							"h-full flex flex-col transition-all duration-300 ease-in-out overflow-hidden min-w-0 bg-base-bg",
-							isTabletPortrait && isPanelOpen
-								? "w-1/2 border-r border-base-border"
-								: "w-full",
-						)}
-					>
+					<div className="h-full w-full flex flex-col overflow-hidden min-w-0 bg-base-bg">
 						<DraftEditorHeader
 							isSidebarOpen={isSidebarOpen}
 							canUndo={historyIndex > 0}
@@ -814,6 +837,7 @@ export default function DraftEditor({
 							onSaveAsTemplate={() => setIsSaveTemplateDialogOpen(true)}
 							onDeleteDraft={handleDeleteDraft}
 							isOverLimit={isOverLimit}
+							isDirty={isDirty}
 							backHref="/notes?view=drafts"
 							onBack={handleBack}
 						/>
@@ -880,6 +904,7 @@ export default function DraftEditor({
 										>
 											{() => (
 												<StudioEditor
+													ref={mobileEditorRef}
 													value={content}
 													onChange={(val) => setContent(val)}
 													placeholder="Write down your thoughts..."
@@ -919,7 +944,7 @@ export default function DraftEditor({
 							<button
 								type="button"
 								onClick={togglePanel}
-								className="fixed right-[50%] -mr-5 top-1/2 -translate-y-1/2 z-40 size-10 rounded-full bg-base-surface border border-base-border shadow-md text-neutral-400 hover:text-action transition-all flex items-center justify-center select-none cursor-pointer active:bg-action active:text-action-text active:border-action"
+								className="fixed right-[380px] md:right-[400px] -mr-5 top-1/2 -translate-y-1/2 z-40 size-10 rounded-full bg-base-surface border border-base-border shadow-md text-neutral-400 hover:text-action transition-all flex items-center justify-center select-none cursor-pointer active:bg-action active:text-action-text active:border-action"
 								title="Close right panel"
 							>
 								<ChevronRight className="w-5 h-5 shrink-0" aria-hidden="true" />
@@ -943,16 +968,30 @@ export default function DraftEditor({
 							</button>
 						))}
 
-					{/* 右ペイン (Tablet width = 50%, hidden on mobile via isTabletPortrait wrap) */}
+					{/* 右ペイン (Tablet width = 380px/400px, absolute overlay) */}
 					{isTabletPortrait && (
 						<div
 							className={cn(
-								"h-full bg-base-surface transition-all duration-300 ease-in-out flex flex-col overflow-hidden shrink-0",
-								isPanelOpen ? "w-1/2" : "w-0 opacity-0 pointer-events-none",
+								"absolute right-0 top-0 bottom-0 z-30 w-[380px] md:w-[400px] bg-base-surface border-l border-base-border shadow-2xl transition-transform duration-300 ease-in-out flex flex-col overflow-hidden",
+								isPanelOpen
+									? "translate-x-0"
+									: "translate-x-full pointer-events-none",
 							)}
 						>
 							<header className="border-b border-base-border p-2">
 								<div className="flex rounded-full bg-base-surface p-1">
+									<button
+										type="button"
+										onClick={() => updatePane("outline")}
+										className={cn(
+											"flex-1 rounded-full py-1.5 text-xs font-bold transition-all cursor-pointer",
+											activePane === "outline"
+												? "bg-action text-action-text shadow-sm"
+												: "text-neutral-500 hover-safe:text-action",
+										)}
+									>
+										OUTLINE
+									</button>
 									<button
 										type="button"
 										onClick={() => updatePane("review")}
@@ -963,7 +1002,7 @@ export default function DraftEditor({
 												: "text-neutral-500 hover-safe:text-action",
 										)}
 									>
-										SELF REVIEW
+										REVIEW
 									</button>
 									<button
 										type="button"
@@ -975,14 +1014,19 @@ export default function DraftEditor({
 												: "text-neutral-500 hover-safe:text-action",
 										)}
 									>
-										GLOBAL MATERIALS
+										MATERIALS
 									</button>
 								</div>
 							</header>
 
 							{/* Tab Content */}
 							<div className="flex-1 overflow-hidden">
-								{activePane === "review" ? (
+								{activePane === "outline" ? (
+									<StudioOutlinePane
+										content={content}
+										onSelectHeading={handleSelectHeading}
+									/>
+								) : activePane === "review" ? (
 									<StudioReviewPane
 										reviewNotes={reviewNotes}
 										isLoadingReview={isLoadingReview}
@@ -1008,12 +1052,6 @@ export default function DraftEditor({
 										isSearching={isSearching}
 									/>
 								)}
-							</div>
-
-							<div className="border-t border-base-border p-4 text-center bg-base-bg/50">
-								<p className="text-[10px] text-neutral-400 font-medium">
-									Weave Studio Power User Mode
-								</p>
 							</div>
 						</div>
 					)}
@@ -1060,6 +1098,18 @@ export default function DraftEditor({
 									<div className="flex rounded-full bg-base-surface p-1">
 										<button
 											type="button"
+											onClick={() => updatePane("outline")}
+											className={cn(
+												"flex-1 rounded-full py-1.5 text-xs font-bold transition-all cursor-pointer",
+												activePane === "outline"
+													? "bg-action text-action-text shadow-sm"
+													: "text-neutral-500 hover-safe:text-action",
+											)}
+										>
+											OUTLINE
+										</button>
+										<button
+											type="button"
 											onClick={() => updatePane("review")}
 											className={cn(
 												"flex-1 rounded-full py-1.5 text-xs font-bold transition-all cursor-pointer",
@@ -1068,7 +1118,7 @@ export default function DraftEditor({
 													: "text-neutral-500 hover-safe:text-action",
 											)}
 										>
-											SELF REVIEW
+											REVIEW
 										</button>
 										<button
 											type="button"
@@ -1080,13 +1130,18 @@ export default function DraftEditor({
 													: "text-neutral-500 hover-safe:text-action",
 											)}
 										>
-											GLOBAL MATERIALS
+											MATERIALS
 										</button>
 									</div>
 								</div>
 
 								<div className="flex-1 overflow-hidden">
-									{activePane === "review" ? (
+									{activePane === "outline" ? (
+										<StudioOutlinePane
+											content={content}
+											onSelectHeading={handleSelectHeading}
+										/>
+									) : activePane === "review" ? (
 										<StudioReviewPane
 											reviewNotes={reviewNotes}
 											isLoadingReview={isLoadingReview}

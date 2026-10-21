@@ -118,7 +118,7 @@ describe("DiaryStudioClient", () => {
 			created_at: "",
 			updated_at: "",
 		});
-		const saveBtn = screen.getAllByRole("button", { name: /Save Diary/i })[0];
+		const saveBtn = screen.getAllByRole("button", { name: /^Save$/i })[0];
 		expect(saveBtn).toBeDisabled();
 	});
 
@@ -133,7 +133,7 @@ describe("DiaryStudioClient", () => {
 		});
 		const editor = screen.getAllByTestId("mock-editor")[0];
 		fireEvent.change(editor, { target: { value: "Modified Content" } });
-		const saveBtn = screen.getAllByRole("button", { name: /Save Diary/i })[0];
+		const saveBtn = screen.getAllByRole("button", { name: /^Save$/i })[0];
 		expect(saveBtn).not.toBeDisabled();
 	});
 
@@ -149,7 +149,7 @@ describe("DiaryStudioClient", () => {
 		const editor = screen.getAllByTestId("mock-editor")[0];
 		const overLimitText = "a".repeat(50001);
 		fireEvent.change(editor, { target: { value: overLimitText } });
-		const saveBtn = screen.getAllByRole("button", { name: /Save Diary/i })[0];
+		const saveBtn = screen.getAllByRole("button", { name: /^Save$/i })[0];
 		expect(saveBtn).toBeDisabled();
 	});
 
@@ -219,7 +219,7 @@ describe("DiaryStudioClient - キャッシュ型不整合修復検証", () => {
 			target: { value: "Updated Content Second Save" },
 		});
 
-		const saveBtn = screen.getAllByRole("button", { name: /Save Diary/i })[0];
+		const saveBtn = screen.getAllByRole("button", { name: /^Save$/i })[0];
 		expect(saveBtn).not.toBeDisabled();
 
 		// 保存ボタンクリック

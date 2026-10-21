@@ -56,8 +56,8 @@ function CodeBlockNode({
 	const [isWrapped, setIsWrapped] = useState(false);
 
 	return (
-		<div className="relative group my-4 not-prose">
-			<div className="absolute top-2 right-2 z-10 flex items-center gap-1 opacity-100 pointer-fine:opacity-0 group-hover-safe:opacity-100 transition-opacity duration-200">
+		<div className="relative group my-4 not-prose min-w-0 w-full max-w-full">
+			<div className="absolute top-2 right-2 z-[1] flex items-center gap-1 opacity-100 pointer-fine:opacity-0 group-hover-safe:opacity-100 transition-opacity duration-200">
 				<button
 					type="button"
 					onClick={() => setIsWrapped(!isWrapped)}
@@ -74,7 +74,7 @@ function CodeBlockNode({
 			{/* codeblock */}
 			<pre
 				className={cn(
-					"overflow-x-auto rounded-xl bg-base-bg dark:bg-neutral-900 border border-base-border dark:border-neutral-800 p-4 text-xs md:text-sm font-mono leading-relaxed transition-all duration-200",
+					"overflow-x-auto rounded-xl bg-base-bg dark:bg-neutral-900 border border-base-border dark:border-neutral-800 p-4 text-xs md:text-sm font-mono leading-relaxed transition-all duration-200 w-full max-w-full min-w-0",
 					isWrapped && "whitespace-pre-wrap break-all",
 				)}
 			>

@@ -16,7 +16,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Note, NoteType } from "@sitecue/shared";
-import { Loader2, Sparkles } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -66,6 +67,10 @@ export default function StudioReviewPane({
 	onGenerateReview,
 	isGeneratingReview,
 }: StudioReviewPaneProps) {
+	const [isAddNotesOpen, setIsAddNotesOpen] = useState(
+		reviewNotes.length === 0,
+	);
+
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
 			activationConstraint: {
@@ -86,13 +91,24 @@ export default function StudioReviewPane({
 	};
 
 	return (
-		<div className="relative flex h-full flex-col bg-neutral-50/30 overflow-hidden">
-			{/* 1. Add Notes フォーム: 独立した固定上部ヘッダー (shrink-0) */}
+		<div className="relative flex h-full flex-col bg-neutral-50/30 overflow-hidden min-w-0 w-full">
+			{/* 1. Add Notes フォーム: アコーディオン開閉対応 */}
 			<div className="shrink-0 p-4 border-b border-neutral-200 bg-white/80 backdrop-blur-md z-20">
-				<div className="flex justify-between items-center mb-3">
-					<span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">
-						Add Notes
-					</span>
+				<div className="flex justify-between items-center">
+					<button
+						type="button"
+						onClick={() => setIsAddNotesOpen((prev) => !prev)}
+						className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 hover:text-action uppercase tracking-widest cursor-pointer select-none transition-colors"
+					>
+						<ChevronDown
+							className={cn(
+								"w-3.5 h-3.5 transition-transform duration-200",
+								!isAddNotesOpen && "-rotate-90",
+							)}
+							aria-hidden="true"
+						/>
+						<span>Add Notes</span>
+					</button>
 					<Button
 						type="button"
 						variant="ghost"
@@ -114,11 +130,15 @@ export default function StudioReviewPane({
 						AI Review
 					</Button>
 				</div>
-				<NoteEditor onSubmit={onAddNote} />
+				{isAddNotesOpen && (
+					<div className="mt-3 animate-fadeIn">
+						<NoteEditor onSubmit={onAddNote} />
+					</div>
+				)}
 			</div>
 
-			{/* 2. Review Notes リスト: 独立したスクロール領域 (flex-1 overflow-y-auto) */}
-			<div className="flex-1 overflow-y-auto p-4 min-h-0">
+			{/* 2. Review Notes リスト: min-w-0 ガード */}
+			<div className="flex-1 overflow-y-auto p-4 min-h-0 w-full min-w-0">
 				<div className="flex justify-between items-center mb-3">
 					<span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">
 						Review Notes ({reviewNotes.length})
@@ -158,7 +178,7 @@ export default function StudioReviewPane({
 					)}
 				</div>
 
-				<div className="grid gap-3">
+				<div className="grid grid-cols-[minmax(0,1fr)] gap-3 w-full min-w-0">
 					{isLoadingReview ? (
 						["skel-1", "skel-2", "skel-3"].map((skelKey) => (
 							<div
@@ -186,7 +206,7 @@ export default function StudioReviewPane({
 								items={reviewNotes.map((n) => n.id)}
 								strategy={verticalListSortingStrategy}
 							>
-								<div className="grid gap-3">
+								<div className="grid grid-cols-[minmax(0,1fr)] gap-3 w-full min-w-0">
 									{reviewNotes.map((note) => (
 										<SortableNoteCard
 											key={note.id}
@@ -283,7 +303,7 @@ function SortableNoteCard({
 	};
 
 	return (
-		<div ref={setNodeRef} style={style}>
+		<div ref={setNodeRef} style={style} className="min-w-0 w-full">
 			<NoteCard
 				note={note}
 				onUpdate={onUpdate}
