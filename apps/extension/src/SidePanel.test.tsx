@@ -38,12 +38,14 @@ vi.mock("./hooks/useAuth", () => ({
 	})),
 }));
 
+let mockCurrentTab = {
+	currentFullUrl: "https://example.com/page",
+	url: "https://example.com/page",
+	title: "Example Page",
+};
+
 vi.mock("./hooks/useCurrentTab", () => ({
-	useCurrentTab: () => ({
-		currentFullUrl: "https://example.com/page",
-		url: "https://example.com/page",
-		title: "Example Page",
-	}),
+	useCurrentTab: () => mockCurrentTab,
 }));
 
 vi.mock("./hooks/useUserStats", () => ({
@@ -462,7 +464,7 @@ describe("SidePanel - Inbox Skeleton Minimum Hold Test", () => {
 			expect(screen.getByText("Inbox Note")).toBeInTheDocument();
 
 			// 2回目以降（Warm State）: 他タブから再度Inboxへ切り替えた際は0msで即時表示されること
-			const pageTab = screen.getByRole("button", { name: /Page/ });
+			const pageTab = screen.getByRole("button", { name: /^Page$/ });
 			fireEvent.click(pageTab);
 			act(() => {
 				vi.advanceTimersByTime(600);
@@ -475,5 +477,38 @@ describe("SidePanel - Inbox Skeleton Minimum Hold Test", () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+});
+
+describe("SidePanel - URL Context Lock Integration", () => {
+	it("鍵ボタンでURLをロックした場合、タブURLが変化しても固定されたURLのノート一覧が表示され続けること", async () => {
+		mockCurrentTab = {
+			currentFullUrl: "https://example.com/page",
+			url: "https://example.com/page",
+			title: "Example Page",
+		};
+		const { rerender } = render(<SidePanel />);
+
+		// 初期表示: Exact Note (example.com/page)
+		expect(screen.getByText("Exact Note")).toBeInTheDocument();
+
+		// ロックボタンをクリック
+		const lockButton = screen.getByRole("button", { name: /^Lock URL$/i });
+		fireEvent.click(lockButton);
+
+		// ボタンが Unlock URL (ロック中) に変化したことを確認
+		expect(
+			screen.getByRole("button", { name: /^Unlock URL/i }),
+		).toBeInTheDocument();
+
+		// useCurrentTab のモックURLを変更して再描画をシミュレート
+		mockCurrentTab = {
+			currentFullUrl: "https://other.com/page",
+			url: "https://other.com/page",
+			title: "Other Page",
+		};
+		// (effectiveTabInfo がロックされているため、Exact Note が維持されること)
+		rerender(<SidePanel />);
+		expect(screen.getByText("Exact Note")).toBeInTheDocument();
 	});
 });

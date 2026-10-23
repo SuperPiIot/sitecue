@@ -71,6 +71,8 @@ export default function QuickPanel({
 	const noteTextRef = useRef("");
 	const noteDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 	const isNoteStorageLoadedRef = useRef(false);
+	const noteScrollContainerRef = useRef<HTMLDivElement>(null);
+	const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
 
 	// --- Command State (Backward compatible with quick_code_text storage) ---
 	const [codeText, setCodeText] = useState("");
@@ -413,7 +415,7 @@ export default function QuickPanel({
 				<div
 					className={
 						isNoteMaximized
-							? "fixed inset-0 z-50 bg-base-bg p-3 flex flex-col h-full animate-fadeIn"
+							? "fixed inset-0 z-50 bg-base-bg p-3 flex flex-col h-screen h-[100dvh] animate-fadeIn"
 							: "px-3 py-2.5 flex flex-col gap-2.5 animate-fadeIn bg-base-bg shrink-0"
 					}
 				>
@@ -559,10 +561,18 @@ export default function QuickPanel({
 					</div>
 
 					{/* Note エディタ / プレビュー領域 */}
+					{/* biome-ignore lint/a11y/useKeyWithClickEvents: focus delegation to inner textarea */}
+					{/* biome-ignore lint/a11y/noStaticElementInteractions: focus delegation to inner textarea */}
 					<div
+						ref={noteScrollContainerRef}
+						onClick={() => {
+							if (noteViewMode === "edit") {
+								noteTextareaRef.current?.focus();
+							}
+						}}
 						className={
 							isNoteMaximized
-								? "w-full pt-1 flex-1 min-h-0 overflow-y-auto overscroll-contain"
+								? "w-full pt-1 flex-1 min-h-0 overflow-y-auto overscroll-contain cursor-text"
 								: "w-full pt-1 max-h-[30vh] overflow-y-auto scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden overscroll-auto"
 						}
 					>
@@ -570,13 +580,11 @@ export default function QuickPanel({
 							className={
 								isSliding
 									? "transition-all duration-300 ease-out translate-x-full opacity-0 pointer-events-none"
-									: isNoteMaximized
-										? "min-h-full flex flex-col transition-none"
-										: "transition-none"
+									: "w-full"
 							}
 						>
 							{noteViewMode === "preview" ? (
-								<div className="p-1 min-h-[4rem]">
+								<div className="p-1 min-h-[4rem] cursor-auto">
 									{noteText.trim() ? (
 										<MarkdownRenderer content={noteText} />
 									) : (
@@ -587,15 +595,37 @@ export default function QuickPanel({
 								</div>
 							) : (
 								<TextareaAutosize
+									ref={noteTextareaRef}
 									onChange={(e) => handleNoteTextChange(e.target.value)}
 									onBlur={flushNoteStorage}
 									value={noteText}
 									placeholder="Temporary text scratchpad..."
-									className={`w-full resize-none overflow-hidden border-none p-0 text-sm bg-base-bg text-neutral-900 focus:outline-none focus:ring-0 placeholder:text-neutral-400 font-['Hack'] font-mono leading-[1.6] transition-[height] duration-300 ease-out ${
-										isNoteMaximized ? "min-h-full" : ""
-									}`}
-									minRows={isNoteMaximized ? 10 : 3}
-									onKeyDown={onNoteKeyDown}
+									className="w-full resize-none overflow-hidden border-none p-0 text-sm bg-base-bg text-neutral-900 focus:outline-none focus:ring-0 placeholder:text-neutral-400 font-['Hack'] font-mono leading-[1.6]"
+									minRows={isNoteMaximized ? 15 : 3}
+									onKeyDown={(e) => {
+										if (e.nativeEvent.isComposing) return;
+										// 末尾行でのEnter改行時にスクロール追従を発火
+										if (
+											e.key === "Enter" &&
+											!e.ctrlKey &&
+											!e.metaKey &&
+											!e.altKey &&
+											!e.shiftKey
+										) {
+											const textarea = e.currentTarget;
+											const isNearEnd =
+												textarea.selectionStart >= textarea.value.length - 1;
+											if (isNearEnd) {
+												requestAnimationFrame(() => {
+													if (noteScrollContainerRef.current) {
+														noteScrollContainerRef.current.scrollTop =
+															noteScrollContainerRef.current.scrollHeight;
+													}
+												});
+											}
+										}
+										onNoteKeyDown(e);
+									}}
 									onPaste={onNotePaste}
 								/>
 							)}
@@ -609,7 +639,7 @@ export default function QuickPanel({
 				<div
 					className={
 						isCodeMaximized
-							? "fixed inset-0 z-50 bg-neutral-900 p-3 flex flex-col h-full animate-fadeIn"
+							? "fixed inset-0 z-50 bg-neutral-900 p-3 flex flex-col h-screen h-[100dvh] animate-fadeIn"
 							: "px-3 py-2.5 flex flex-col gap-2 animate-fadeIn bg-neutral-900 shrink-0 text-neutral-100"
 					}
 				>

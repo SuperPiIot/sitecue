@@ -281,8 +281,9 @@ describe("NoteItem Component", () => {
 	});
 });
 
-describe("Header - Settings Dot Promotion & Gear Removal", () => {
-	it("右上の共通歯車設定ボタンが存在せず、タイトル左側のカラー丸ドットボタンをクリックすると設定エリアがトグルすること", () => {
+describe("Header - Lock Button & Title Settings Trigger", () => {
+	it("タイトルをクリックすると設定エリアがトグルし、鍵ボタンクリックでonToggleLockが呼ばれること", () => {
+		const onToggleLockMock = vi.fn();
 		const authStatus: AuthStatus = {
 			mode: "guest",
 			session: null,
@@ -297,19 +298,25 @@ describe("Header - Settings Dot Promotion & Gear Removal", () => {
 				session={null}
 				onLogout={vi.fn()}
 				authStatus={authStatus}
+				isLocked={false}
+				onToggleLock={onToggleLockMock}
 			/>,
 		);
 
-		expect(screen.queryByTitle("Settings")).not.toBeInTheDocument();
+		// 1. 鍵アイコン（非ロック時は Lock URL）の検証とクリック
+		const lockButton = screen.getByRole("button", { name: /^Lock URL$/i });
+		expect(lockButton).toBeInTheDocument();
+		fireEvent.click(lockButton);
+		expect(onToggleLockMock).toHaveBeenCalledTimes(1);
 
-		const dotButton = screen.getByTitle("Toggle note settings");
-		expect(dotButton).toBeInTheDocument();
+		// 2. タイトルクリックによる設定パネル開閉の検証
+		const titleButton = screen.getByRole("button", { name: /Example Page/i });
 		expect(screen.queryByLabelText(/Label/i)).not.toBeInTheDocument();
 
-		fireEvent.click(dotButton);
+		fireEvent.click(titleButton);
 		expect(screen.getByLabelText(/Label/i)).toBeInTheDocument();
 
-		fireEvent.click(dotButton);
+		fireEvent.click(titleButton);
 		expect(screen.queryByLabelText(/Label/i)).not.toBeInTheDocument();
 	});
 });

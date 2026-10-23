@@ -339,39 +339,72 @@ export function useNotes(
 		if (!existingNote) return false;
 
 		const targetScope = editScope ?? existingNote.scope;
+		const currentUserId =
+			authStatus.mode === "guest" ? "guest-user" : session?.user?.id;
+		if (!currentUserId) return false;
 
+		const resolved = resolveNotePayload({
+			content: editContent,
+			note_type: editType,
+			scope: targetScope,
+			currentUrl: currentFullUrl,
+		});
+
+		const optimisticNote: Note = {
+			...existingNote,
+			content: resolved.content,
+			note_type: resolved.note_type,
+			scope: resolved.scope,
+			url_pattern: resolved.url_pattern,
+			tags: resolved.tags,
+			updated_at: new Date().toISOString(),
+		};
+
+		// 🛡️ ロールバック用バックアップ
+		const previousPageNotes = pageNotes;
+		const previousInboxNotes = inboxNotes;
+		const previousFavoriteNotes = favoriteNotes;
+
+		// 🌟 1. 0ms 楽観的State更新
+		if (existingNote.scope !== targetScope) {
+			if (existingNote.scope === "inbox") {
+				setInboxNotes((prev) => prev.filter((n) => n.id !== id));
+				setPageNotes((prev) =>
+					[...prev, optimisticNote].sort(sortNotesConsistent),
+				);
+			} else {
+				setPageNotes((prev) => prev.filter((n) => n.id !== id));
+				setInboxNotes((prev) =>
+					[...prev, optimisticNote].sort(sortNotesConsistent),
+				);
+			}
+		} else {
+			updateLocalNoteState(
+				(prev) => prev.map((n) => (n.id === id ? optimisticNote : n)),
+				targetScope,
+			);
+		}
+
+		setFavoriteNotes((prev) =>
+			prev.map((n) => (n.id === id ? { ...n, ...optimisticNote } : n)),
+		);
+
+		// 🌟 2. 非同期永続化
 		try {
 			let data: Note;
 			if (authStatus.mode === "guest") {
-				const resolved = resolveNotePayload({
-					content: editContent,
-					note_type: editType,
-					scope: targetScope,
-					currentUrl: currentFullUrl,
-				});
-
-				const updatedNote = {
-					...existingNote,
-					content: editContent,
-					note_type: editType,
-					scope: targetScope,
-					url_pattern: resolved.url_pattern,
-					tags: resolved.tags,
-					updated_at: new Date().toISOString(),
-				} as Note;
-
 				const guestClient = client as unknown as typeof localClient;
 				if (typeof guestClient.from === "function") {
 					try {
 						await (guestClient
 							.from("sitecue_notes")
-							.update(updatedNote)
+							.update(optimisticNote)
 							.eq("id", id) as unknown as Promise<unknown>);
 					} catch (e) {
 						console.warn("localClient update fell back", e);
 					}
 				}
-				data = updatedNote;
+				data = optimisticNote;
 			} else {
 				data = await updateNoteEntity(
 					client as unknown as typeof supabase,
@@ -385,6 +418,7 @@ export function useNotes(
 				);
 			}
 
+			// DBレスポンスで確実に最新確定
 			if (existingNote.scope !== data.scope) {
 				if (existingNote.scope === "inbox") {
 					setInboxNotes((prev) => prev.filter((n) => n.id !== id));
@@ -408,6 +442,12 @@ export function useNotes(
 			return true;
 		} catch (error: unknown) {
 			console.error("Failed to update note", error);
+
+			// 🛡️ ロールバック実行
+			setPageNotes(previousPageNotes);
+			setInboxNotes(previousInboxNotes);
+			setFavoriteNotes(previousFavoriteNotes);
+
 			let errorMsg = "Failed to update note";
 			if (typeof error === "object" && error !== null && "message" in error) {
 				const msg = String((error as { message: unknown }).message);

@@ -4,7 +4,9 @@ import {
 	CircleOff,
 	ExternalLink,
 	Glasses,
+	Lock,
 	LogOut,
+	Unlock,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -19,6 +21,8 @@ interface HeaderProps {
 	onLogout: () => void;
 	authStatus: AuthStatus;
 	onDiaryClick?: () => void;
+	isLocked?: boolean;
+	onToggleLock?: () => void;
 }
 
 interface DomainSettings {
@@ -34,6 +38,12 @@ const COLORS = [
 	{ name: "Purple", value: "violet-400", hex: "#a78bfa" }, // Violet
 ];
 
+// ドメイン設定カラーの hex 解決ヘルパー
+const getColorHex = (colorName?: string) => {
+	if (!colorName) return undefined;
+	return COLORS.find((c) => c.value === colorName)?.hex;
+};
+
 export default function Header({
 	url,
 	title,
@@ -42,6 +52,8 @@ export default function Header({
 	onLogout,
 	authStatus,
 	onDiaryClick,
+	isLocked = false,
+	onToggleLock,
 }: HeaderProps) {
 	const [settings, setSettings] = useState<DomainSettings | null>(null);
 	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -148,40 +160,76 @@ export default function Header({
 		}
 	};
 
+	const colorHex = getColorHex(settings?.color);
+
 	return (
-		<div className="p-2 bg-base-surface border-b border-base-border sticky top-0 z-50 w-full min-w-0">
+		<div
+			style={{
+				borderColor: isLocked ? colorHex || undefined : undefined,
+			}}
+			className={`p-2 bg-base-surface border-b sticky top-0 z-50 w-full min-w-0 transition-colors ${
+				isLocked && !colorHex ? "border-action" : "border-base-border"
+			}`}
+		>
 			{/* 📐 完璧に対称性を保護し、カプセル膨張時の窒息を防ぐGridトラック設計 */}
 			<div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 w-full">
 				<div className="min-w-0 flex flex-col justify-center">
 					<h1 className="text-lg font-semibold text-action flex items-center gap-2 w-full min-w-0">
+						{/* 鍵ボタン（旧ドットボタン） */}
+						<button
+							type="button"
+							onClick={onToggleLock}
+							style={{
+								backgroundColor: isLocked ? colorHex || undefined : undefined,
+								color: !isLocked && colorHex ? colorHex : undefined,
+							}}
+							className={`cursor-pointer size-6 rounded-full shrink-0 flex items-center justify-center transition-all ${
+								isLocked
+									? `shadow-xs ${!colorHex ? "bg-action text-action-text" : "text-white"}`
+									: `hover:bg-base-surface ${!colorHex ? "text-muted-foreground/50 hover:text-action" : ""}`
+							}`}
+							title={
+								isLocked
+									? "Unlock URL (currently locked)"
+									: "Lock URL (keep current notes visible across tabs)"
+							}
+							aria-label={isLocked ? "Unlock URL" : "Lock URL"}
+						>
+							{isLocked ? (
+								<Lock className="size-3.5" aria-hidden="true" />
+							) : (
+								<Unlock className="size-3.5" aria-hidden="true" />
+							)}
+						</button>
+
+						{/* タイトル（クリックで設定開閉） */}
 						<button
 							type="button"
 							onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-							style={{
-								touchAction: "none",
-								backgroundColor: settings?.color
-									? COLORS.find((c) => c.value === settings?.color)?.hex ||
-										undefined
-									: undefined,
-							}}
-							className={`cursor-pointer size-3 rounded-full shrink-0 transition-transform active:scale-90 ${settings?.color ? "" : "bg-base-border/80"}`}
-							title="Toggle note settings"
-							aria-label="Toggle note settings"
-						/>
-						<span
-							className="truncate flex-1 min-w-0 text-left"
-							title={title || "sitecue"}
+							className="truncate flex-1 min-w-0 text-left cursor-pointer hover:bg-base-surface/80 rounded px-1 -mx-1 transition-colors"
+							title="Click to edit label & color"
 						>
-							{title || "sitecue"}
-						</span>
-						{settings?.label && (
-							<span className="text-[10px] bg-action text-action-text px-1.5 py-0.5 rounded border border-base-border font-mono shrink-0">
-								{settings.label}
+							<span className="truncate block font-semibold text-action">
+								{title || "sitecue"}
 							</span>
+						</button>
+
+						{/* ラベルバッジ（クリックで設定開閉） */}
+						{settings?.label && (
+							<button
+								type="button"
+								onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+								className="text-[10px] bg-action text-action-text px-1.5 py-0.5 rounded border border-base-border font-mono shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+								title="Click to edit label & color"
+							>
+								{settings.label}
+							</button>
 						)}
 					</h1>
 					<p
-						className="text-xs text-muted-foreground truncate w-full"
+						className={`text-xs truncate w-full transition-colors ${
+							isLocked ? "text-action/80 font-medium" : "text-muted-foreground"
+						}`}
 						title={url}
 					>
 						{url || "Waiting..."}

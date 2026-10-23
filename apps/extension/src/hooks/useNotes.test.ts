@@ -713,3 +713,71 @@ describe("useNotes - Favorite Isolation & Deduplication", () => {
 		expect(result.current.notes.some((n) => n.id === "fav-1")).toBe(true);
 	});
 });
+
+describe("useNotes - Optimistic update and rollback", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	const mockSession = { user: { id: "user-1" } } as unknown as Session;
+	const mockAuthStatus: AuthStatus = {
+		mode: "authenticated",
+		session: mockSession,
+		userId: "user-1",
+	};
+
+	it("updateNote実行時、即座にローカルStateが更新され、通信失敗時にロールバックされること", async () => {
+		let rejectUpdate: (reason?: unknown) => void = () => {};
+		const updatePromise = new Promise<Note>((_, reject) => {
+			rejectUpdate = reject;
+		});
+
+		vi.mocked(fetchExtensionNoteMetadatas).mockResolvedValueOnce([
+			{
+				id: "note-opt-1",
+				url_pattern: "example.com/page",
+				scope: "exact",
+				content: "Original Content",
+				created_at: new Date().toISOString(),
+			} as unknown as Note,
+		]);
+		vi.mocked(fetchExtensionNoteContents).mockResolvedValueOnce([]);
+		vi.mocked(fetchExtensionFavoriteMetadatas).mockResolvedValueOnce([]);
+		vi.mocked(fetchExtensionFavoriteContents).mockResolvedValueOnce([]);
+		vi.mocked(fetchExtensionInboxMetadatas).mockResolvedValueOnce([]);
+		vi.mocked(fetchExtensionInboxContents).mockResolvedValueOnce([]);
+		vi.mocked(updateNoteEntity).mockReturnValueOnce(updatePromise);
+
+		const { result } = renderHook(() =>
+			useNotes(mockAuthStatus, "https://example.com/page", vi.fn(), "exact"),
+		);
+
+		await waitFor(() => expect(result.current.loading).toBe(false));
+
+		// 実行（Promise は未解決のまま）
+		let updateActionPromise: Promise<boolean>;
+		act(() => {
+			updateActionPromise = result.current.updateNote(
+				"note-opt-1",
+				"Optimistic Content",
+				"info",
+			);
+		});
+
+		// 0ms でローカルStateが先行更新されていること
+		expect(
+			result.current.notes.find((n) => n.id === "note-opt-1")?.content,
+		).toBe("Optimistic Content");
+
+		// 通信エラーを発生させる
+		await act(async () => {
+			rejectUpdate(new Error("Network Error"));
+			await updateActionPromise;
+		});
+
+		// 元の内容にロールバックされていること
+		expect(
+			result.current.notes.find((n) => n.id === "note-opt-1")?.content,
+		).toBe("Original Content");
+	});
+});
