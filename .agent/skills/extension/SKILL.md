@@ -33,5 +33,8 @@ description: Chrome拡張機能（WXT/Manifest V3）、OAuth認証、ゲスト�
 - **シングルスクロール統合規約 (Single Scroll Viewport Rule):** サイドパネル内のノート編集画面（`NoteItem`）は、内部スクロールバーを発生させてはならず、コンテナ全体のスクロールバー1本で完結するよう高さを自動追従させること。
 - **無限スクロール Sentinel 監視規約 (Callback Ref Sentinel Rule):** リストの無限スクロールを司る `IntersectionObserver` の監視対象要素（sentinel）は、マウント遅延や非同期データ着信による登録漏れを防ぐため、`useEffect` + `useRef` ではなく必ず Callback Ref (`useCallback`) を用いて要素の出現時にアトミックに監視登録を行うこと。
 - **可視性連動サイズ測定規約 (ResizeObserver Collapsible Rule):** アコーディオンやタブ等で初期非表示（`display: none`）になり得るカードのテキスト溢れ・省略判定（`isOverflowing`）は、初期マウント時の一発測定（`scrollHeight`）に依存せず、`ResizeObserver` を用いて要素が可視化された瞬間のサイズ変化に自動追従させること。
+- **URLロックコンテキスト分離規約 (Context Lock Isolation Rule):** サイドパネル内でURL固定（Lock）が有効化されている場合、タブ切り替え（`onActivated`）やURL更新（`onUpdated`）イベントによる下位コンポーネントへのコンテキスト更新を遮断し、ロック中のURL・ドメイン・タイトルを唯一のSSOTとして分配すること。
+- **ノート保存0ms楽観的更新規約 (Optimistic Note Save Rule):** ノート編集（`updateNote`）の保存処理は、フロント側での文字数制限事前ガードを通過後、通信の完了を待たずに直ちにローカルStateを更新して編集モードを閉じ、非同期で永続化およびエラー時ロールバックを行うこと。
+
 
 

@@ -7,7 +7,6 @@ import {
 	GripVertical,
 	Info,
 	Lightbulb,
-	Loader2,
 	Pencil,
 	Pin,
 	RotateCcw,
@@ -92,7 +91,6 @@ function NoteItem({
 	const [editContent, setEditContent] = useState("");
 	const [editType, setEditType] = useState<NoteType>("info");
 	const [editScope, setEditScope] = useState<NoteScope>(note.scope);
-	const [updating, setUpdating] = useState(false);
 	const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null);
 	const [isOverflowing, setIsOverflowing] = useState(() => {
 		return (note.content ?? "").length > 120;
@@ -222,22 +220,33 @@ function NoteItem({
 
 	const handleUpdate = async () => {
 		if (!editContent.trim()) return;
-		if (
-			(userPlan === "free" || userPlan === "guest") &&
-			editContent.length > SHARED_LIMITS.NOTE_LENGTH.FREE
-		) {
+		const maxLen =
+			userPlan === "pro"
+				? SHARED_LIMITS.NOTE_LENGTH.PRO
+				: SHARED_LIMITS.NOTE_LENGTH.FREE;
+
+		// 1. フロント事前文字数ガード
+		if (editContent.length > maxLen) {
 			toast.error(
-				"Free plan limit is 10,000 characters. Please shorten text or upgrade.",
+				`Failed to save: Content exceeds the ${maxLen.toLocaleString()} character limit.`,
 			);
 			return;
 		}
-		setUpdating(true);
-		const success = await onUpdate(note.id, editContent, editType, editScope);
-		if (success) {
-			onRequestEdit("");
-			onSetIsEditDirty(false);
-		}
-		setUpdating(false);
+
+		// 2. 0ms 楽観的UI終了（通信を待たずに即座に閲覧モードへ復帰）
+		const currentEditContent = editContent;
+		const currentEditType = editType;
+		const currentEditScope = editScope;
+		onRequestEdit("");
+		onSetIsEditDirty(false);
+
+		// 3. 非同期でバックグラウンド保存を実行（エラーハンドリング・ロールバックは useNotes に委譲）
+		void onUpdate(
+			note.id,
+			currentEditContent,
+			currentEditType,
+			currentEditScope,
+		);
 	};
 
 	const handleCopyNote = () => {
@@ -326,15 +335,9 @@ function NoteItem({
 								<Button
 									variant="default"
 									size="xs"
-									icon={
-										updating ? (
-											<Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-										) : (
-											<Check className="w-3.5 h-3.5" />
-										)
-									}
+									icon={<Check className="w-3.5 h-3.5" />}
 									onClick={handleUpdate}
-									disabled={updating || isUnchanged}
+									disabled={isUnchanged}
 								>
 									Save
 								</Button>

@@ -116,6 +116,40 @@ function NotesUI({
 	const userPlan = isGuest ? "guest" : dbUserPlan;
 	const userStatsLoading = isGuest ? false : dbUserStatsLoading;
 
+	// 1. URLロック管理ステートの追加
+	const [isLocked, setIsLocked] = useState(false);
+	const [lockedTabInfo, setLockedTabInfo] = useState<{
+		currentFullUrl: string;
+		url: string;
+		title: string;
+	} | null>(null);
+
+	// 2. ロック切り替えハンドラ
+	const handleToggleLock = useCallback(() => {
+		setIsLocked((prev) => {
+			const next = !prev;
+			if (next) {
+				setLockedTabInfo({ currentFullUrl, url, title });
+			} else {
+				setLockedTabInfo(null);
+			}
+			return next;
+		});
+	}, [currentFullUrl, url, title]);
+
+	// 3. 有効なタブコンテキストの解決 (SSOT)
+	const effectiveTabInfo = useMemo(() => {
+		if (isLocked && lockedTabInfo) {
+			return lockedTabInfo;
+		}
+		return { currentFullUrl, url, title };
+	}, [isLocked, lockedTabInfo, currentFullUrl, url, title]);
+
+	// 4. 下流コンポーネントへの渡し先を effectiveTabInfo へ統一
+	const effectiveDomain = effectiveTabInfo.currentFullUrl
+		? getScopeUrls(effectiveTabInfo.currentFullUrl).domain
+		: "";
+
 	// 🔍 フィルタリング用ステート
 	const [filterType, setFilterType] = useState<
 		"all" | "info" | "alert" | "idea"
@@ -480,11 +514,16 @@ function NotesUI({
 		togglePinned,
 		updateNoteOrder,
 		toggleNoteExpansion,
-	} = useNotes(authStatus, currentFullUrl, () => {}, viewScope);
+	} = useNotes(
+		authStatus,
+		effectiveTabInfo.currentFullUrl,
+		() => {},
+		viewScope,
+	);
 
 	// 🔍 フィルタリングロジックの集約 (SSOT) を useMemo で要塞化
-	const scopeUrls = currentFullUrl
-		? getScopeUrls(currentFullUrl)
+	const scopeUrls = effectiveTabInfo.currentFullUrl
+		? getScopeUrls(effectiveTabInfo.currentFullUrl)
 		: { domain: "", exact: "" };
 
 	const isContentUnchanged = editDiaryContent === (diaryData?.content ?? "");
@@ -771,12 +810,14 @@ function NotesUI({
 			/>
 			<div className={isNotesMaximized ? "hidden" : "contents"}>
 				<Header
-					url={url}
-					title={title}
-					domain={currentFullUrl ? getScopeUrls(currentFullUrl).domain : ""}
+					url={effectiveTabInfo.url}
+					title={effectiveTabInfo.title}
+					domain={effectiveDomain}
 					session={session}
 					onLogout={onLogout}
 					authStatus={authStatus}
+					isLocked={isLocked}
+					onToggleLock={handleToggleLock}
 					onDiaryClick={() => {
 						setIsDiaryOpen(true);
 						setIsEditingDiary(false);
@@ -784,9 +825,7 @@ function NotesUI({
 				/>
 
 				<QuickPanel
-					currentDomain={
-						currentFullUrl ? getScopeUrls(currentFullUrl).domain : null
-					}
+					currentDomain={effectiveDomain || null}
 					onAddNote={handleAddNote}
 					onAppendDiary={handleAppendDiary}
 					userPlan={userPlan}
@@ -904,7 +943,7 @@ function NotesUI({
 						scope={deferredFilterState.viewScope}
 						notes={finalFilteredNotes}
 						loading={loading}
-						currentFullUrl={currentFullUrl}
+						currentFullUrl={effectiveTabInfo.currentFullUrl}
 						onUpdate={updateNote}
 						onDelete={deleteNote}
 						onToggleResolved={toggleResolved}
