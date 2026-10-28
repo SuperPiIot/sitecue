@@ -47,3 +47,14 @@ export interface SitecuePinnedSiteBase {
 	url: string;
 	created_at: string;
 }
+
+export interface SitecueProfileBase {
+	id: string;
+	created_at: string;
+	updated_at: string;
+	plan: "free" | "pro";
+	ai_usage_count: number;
+	ai_usage_reset_at: string | null;
+	polar_customer_id: string | null;
+	polar_subscription_id: string | null;
+}

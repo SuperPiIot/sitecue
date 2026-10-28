@@ -24,13 +24,6 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
 
-CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
-
-
-
-
-
-
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
 
 
@@ -535,6 +528,8 @@ CREATE TABLE IF NOT EXISTS "public"."sitecue_profiles" (
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
     "ai_usage_count" integer DEFAULT 0 NOT NULL,
     "ai_usage_reset_at" timestamp with time zone DEFAULT ("now"() + '1 mon'::interval),
+    "polar_customer_id" "text",
+    "polar_subscription_id" "text",
     CONSTRAINT "sitecue_profiles_plan_check" CHECK (("plan" = ANY (ARRAY['free'::"text", 'pro'::"text"])))
 );
 
@@ -868,9 +863,6 @@ GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
-
-
-
 
 
 
