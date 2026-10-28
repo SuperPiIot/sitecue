@@ -1,6 +1,6 @@
 "use client";
 
-import toast from "react-hot-toast";
+import { useUserStore } from "@/store/useUserStore";
 
 interface ComingSoonButtonProps {
 	className?: string;
@@ -8,10 +8,12 @@ interface ComingSoonButtonProps {
 }
 
 export function ComingSoonButton({ className, text }: ComingSoonButtonProps) {
+	const openPaywall = useUserStore((state) => state.openPaywall);
+
 	return (
 		<button
 			type="button"
-			onClick={() => toast("Coming soon", { icon: "🚀" })}
+			onClick={() => openPaywall("notes")}
 			className={className}
 		>
 			{text}

@@ -18,3 +18,9 @@ description: Hono API、プロンプト分離、モデル管理、およびレ�
 
 ## 3. AI モデル管理と環境変数
 - **モデルIDのハードコード禁止**: Gemini 等のモデル名ストリング（例: `gemini-1.5-flash`）を `.ts` ファイル内に直接記述してはならない。必ず環境変数（`c.env.GEMINI_MODEL_NAME` 等）から注入し、未設定時のフォールバックとしてのみ正確なデフォルト値を記述すること。
+
+## 4. Polar Webhook & Payment Rules
+- **ランタイム安全:** Webhook署名検証には Node.js の `crypto` を使用せず、Web Crypto API (`crypto.subtle`) を使用すること。
+- **疎結合設計:** Product ID を環境変数やコード内でハードコードして判定してはならない。必ず Webhook ペイロードの `metadata.tier` を参照して付与プランを解決すること。
+- **失効管理:** 解約（`subscription.canceled`）では権限を剥奪せず、権利失効（`subscription.revoked`）を受信したタイミングで `plan = 'free'` に更新すること。
+

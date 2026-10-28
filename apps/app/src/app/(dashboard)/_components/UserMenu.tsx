@@ -33,7 +33,7 @@ export function UserMenu({
 	const supabase = createClient();
 	const [user, setUser] = useState<SupabaseUser | null>(null);
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
-	const { aiUsageCount, plan, setUserData } = useUserStore();
+	const { aiUsageCount, plan, setUserData, openPaywall } = useUserStore();
 	const { data: notes = [] } = useFetchNotes();
 	const { data: drafts = [] } = useFetchDrafts();
 
@@ -101,6 +101,29 @@ export function UserMenu({
 						{user.email}
 					</p>
 					<p className="text-[10px] text-neutral-400 font-medium">My Account</p>
+				</div>
+
+				<div className="px-3 py-2 mb-1 border-b border-base-border/50">
+					{plan === "pro" ? (
+						<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 text-xs font-semibold w-fit">
+							<Sparkles className="size-3 text-amber-500" aria-hidden="true" />
+							<span>Pro Plan Active</span>
+						</div>
+					) : (
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={() => {
+								setIsMenuOpen(false);
+								openPaywall("notes");
+							}}
+							className="w-full rounded-full py-1.5 text-xs font-semibold flex items-center justify-center gap-1.5 border-action/30 hover-safe:bg-action/5 cursor-pointer text-action"
+						>
+							<Sparkles className="size-3 text-amber-500" aria-hidden="true" />
+							<span>Upgrade to Pro</span>
+						</Button>
+					)}
 				</div>
 
 				<div className="px-3 py-2 mb-1 border-b border-base-border/50">

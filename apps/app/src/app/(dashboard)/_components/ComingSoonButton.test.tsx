@@ -1,20 +1,24 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import toast from "react-hot-toast";
 import { describe, expect, it, vi } from "vitest";
 import { ComingSoonButton } from "./ComingSoonButton";
 
-vi.mock("react-hot-toast", () => ({
-	default: vi.fn(),
+const mockOpenPaywall = vi.fn();
+
+vi.mock("@/store/useUserStore", () => ({
+	useUserStore: vi.fn((selector) => {
+		const state = { openPaywall: mockOpenPaywall };
+		return selector(state);
+	}),
 }));
 
 describe("ComingSoonButton", () => {
-	it("renders text and triggers toast on click", () => {
+	it("renders text and triggers openPaywall on click", () => {
 		render(<ComingSoonButton text="Upgrade" />);
 		const button = screen.getByText("Upgrade");
 
-		expect(button).toBeDefined();
+		expect(button).toBeInTheDocument();
 
 		fireEvent.click(button);
-		expect(toast).toHaveBeenCalledWith("Coming soon", { icon: "🚀" });
+		expect(mockOpenPaywall).toHaveBeenCalledWith("notes");
 	});
 });
