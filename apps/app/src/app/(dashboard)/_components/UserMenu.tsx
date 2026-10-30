@@ -2,7 +2,14 @@
 
 import { fetchOrResetUserProfile, SHARED_LIMITS } from "@sitecue/shared";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
-import { Activity, LogOut, Settings, Sparkles, User } from "lucide-react";
+import {
+	Activity,
+	ExternalLink,
+	LogOut,
+	Settings,
+	Sparkles,
+	User,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -105,9 +112,30 @@ export function UserMenu({
 
 				<div className="px-3 py-2 mb-1 border-b border-base-border/50">
 					{plan === "pro" ? (
-						<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 text-xs font-semibold w-fit">
-							<Sparkles className="size-3 text-amber-500" aria-hidden="true" />
-							<span>Pro Plan Active</span>
+						<div className="flex flex-col gap-2">
+							<div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 text-xs font-semibold w-fit">
+								<Sparkles
+									className="size-3 text-amber-500"
+									aria-hidden="true"
+								/>
+								<span>Pro Plan Active</span>
+							</div>
+							<a
+								href={
+									process.env.NEXT_PUBLIC_POLAR_PORTAL_URL ||
+									"https://polar.sh/sitecue/portal"
+								}
+								target="_blank"
+								rel="noopener noreferrer"
+								onClick={() => setIsMenuOpen(false)}
+								className="inline-flex items-center gap-1.5 text-xs text-neutral-500 hover:text-action transition-colors px-1 py-0.5 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action/50"
+							>
+								<span>Manage Subscription</span>
+								<ExternalLink
+									className="size-3 text-neutral-400"
+									aria-hidden="true"
+								/>
+							</a>
 						</div>
 					) : (
 						<Button
